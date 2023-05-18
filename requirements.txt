@@ -1,0 +1,5 @@
+la-core-web-lg @ https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-any-py3-none-any.whl#sha256=03e29fbaae0bf583610f6c042b874441aa213aee238f2a63f413bb608fe6f100
+la-core-web-md @ https://huggingface.co/latincy/la_core_web_md/resolve/main/la_core_web_md-any-py3-none-any.whl#sha256=6c48e1494a8e892878a5381846fc8b3d7dc1c160b3ae2090098b856aa679bfd4
+la-core-web-sm @ https://huggingface.co/latincy/la_core_web_sm/resolve/main/la_core_web_sm-any-py3-none-any.whl#sha256=0aecb1b9c9974b48b180092ab4e25b3bdba7c4b7b6cd47942e667cb054f07e04
+pandas==1.5.3
+spacy==3.5.2
