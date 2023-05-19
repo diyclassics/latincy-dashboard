@@ -3,3 +3,4 @@ la-core-web-md @ https://huggingface.co/latincy/la_core_web_md/resolve/main/la_c
 la-core-web-sm @ https://huggingface.co/latincy/la_core_web_sm/resolve/main/la_core_web_sm-any-py3-none-any.whl#sha256=0aecb1b9c9974b48b180092ab4e25b3bdba7c4b7b6cd47942e667cb054f07e04
 pandas==1.5.3
 spacy==3.5.2
+streamlit==1.21.0
