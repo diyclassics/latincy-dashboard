@@ -4,3 +4,4 @@ la-core-web-sm @ https://huggingface.co/latincy/la_core_web_sm/resolve/main/la_c
 pandas==1.5.3
 spacy==3.5.2
 streamlit==1.21.0
+spacy-streamlit==1.0.5
