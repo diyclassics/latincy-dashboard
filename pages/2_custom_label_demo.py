@@ -55,6 +55,7 @@ text = st.text_area(
     "Enter some text to analyze (max 100 tokens)", value=default_text, height=200
 )
 if st.button("Analyze"):
+    text = " ".join(text.split()[:100])
     doc = nlp(text.replace("v", "u").replace("V", "U"))
     len_doc = len([token for token in doc if not token.is_punct])
     len_dcc = len(doc.spans["dcc_core"])
