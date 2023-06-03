@@ -35,7 +35,7 @@ class DCCCoreMerger:
             doc.spans["dcc_core"].append(Span(doc, start, end, "CORE"))
             for span in spans:
                 for token in span:
-                    token._.is_dcc_core = True  # Mark token as bad HTML
+                    token._.is_dcc_core = True
         return doc
 
 st.title("LatinCy DCC Core Visualizer")
