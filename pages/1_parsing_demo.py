@@ -20,7 +20,7 @@ def format_morph(morph):
 def analyze_text(text):
     doc = nlp(text)
     rows = []
-    for token in doc[:100]:
+    for token in doc[:500]:
         rows.append(
             (
                 token.text,
@@ -55,8 +55,7 @@ st.title("LatinCy Text Analyzer")
 
 # Using object notation
 model_selectbox = st.sidebar.selectbox(
-    "Choose model:",
-    ("la_core_web_lg", "la_core_web_md", "la_core_web_sm")
+    "Choose model:", ("la_core_web_lg", "la_core_web_md", "la_core_web_sm")
 )
 
 nlp = spacy.load(model_selectbox)
@@ -64,7 +63,7 @@ nlp = spacy.load(model_selectbox)
 df = None
 
 text = st.text_area(
-    "Enter some text to analyze (max 100 tokens)", value=default_text, height=200
+    "Enter some text to analyze (max 500 tokens)", value=default_text, height=200
 )
 if st.button("Analyze"):
     df = analyze_text(text)
