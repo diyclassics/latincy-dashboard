@@ -2,6 +2,7 @@ la-core-web-lg @ https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_c
 la-core-web-md @ https://huggingface.co/latincy/la_core_web_md/resolve/main/la_core_web_md-any-py3-none-any.whl
 la-core-web-sm @ https://huggingface.co/latincy/la_core_web_sm/resolve/main/la_core_web_sm-any-py3-none-any.whl
 pandas==2.2.2
-spacy==3.7.4
+spacy==3.7.5
 spacy-streamlit==1.0.6
-streamlit==1.29.0
+streamlit==1.36.0
+watchdog==4.0.1

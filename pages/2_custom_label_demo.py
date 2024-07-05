@@ -56,7 +56,7 @@ text = st.text_area(
 )
 if st.button("Analyze"):
     text = " ".join(text.split()[:100])
-    doc = nlp(text.replace("v", "u").replace("V", "U"))
+    doc = nlp(text.replace("v", "u").replace("V", "U").lower())
     len_doc = len([token for token in doc if not token.is_punct])
     len_dcc = len(doc.spans["dcc_core"])
     st.text(f"Analyzed {len_doc} tokens with {len_dcc} core vocabulary items ({round((len_dcc/len_doc)*100, 2)}%) ")
