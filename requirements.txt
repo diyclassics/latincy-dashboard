@@ -1,10 +1,10 @@
 altair<5
-la-core-web-lg @ https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-any-py3-none-any.whl
-la-core-web-md @ https://huggingface.co/latincy/la_core_web_md/resolve/main/la_core_web_md-any-py3-none-any.whl
-la-core-web-sm @ https://huggingface.co/latincy/la_core_web_sm/resolve/main/la_core_web_sm-any-py3-none-any.whl
+la-core-web-lg @ https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-3.8.0-py3-none-any.whl
+la-core-web-md @ https://huggingface.co/latincy/la_core_web_md/resolve/main/la_core_web_md-3.8.0-py3-none-any.whl
+la-core-web-sm @ https://huggingface.co/latincy/la_core_web_sm/resolve/main/la_core_web_sm-3.8.0-py3-none-any.whl
 pandas==2.2.2
-spacy==3.7.5
+spacy==3.8.4
 spacy_lookups_data @ git+https://github.com/diyclassics/spacy-lookups-data.git#egg=spacy-lookups-data
 spacy-streamlit==1.0.6
-streamlit==1.36.0
-watchdog==4.0.1
+streamlit==1.42.2
+watchdog==6.0.0
