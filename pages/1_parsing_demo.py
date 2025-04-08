@@ -2,6 +2,10 @@ import streamlit as st
 import spacy
 import pandas as pd
 import datetime
+import gc
+import subprocess
+import json
+from spacy.util import registry
 
 st.set_page_config(page_title="Parsing Demo", layout="wide")
 st.sidebar.header("Parsing Demo")
@@ -54,11 +58,40 @@ def analyze_text(text):
 st.title("LatinCy Text Analyzer")
 
 # Using object notation
-model_selectbox = st.sidebar.selectbox(
-    "Choose model:", ("la_core_web_lg", "la_core_web_md", "la_core_web_sm")
-)
+first_model = "la_core_web_lg"
+first_model_version = spacy.info(first_model)["version"]
 
-nlp = spacy.load(model_selectbox)
+
+# Function to unload the current model
+@st.cache_resource
+def load_model(model_name):
+    gc.collect()  # Attempt to free memory
+    nlp = spacy.load(model_name)
+    try:
+        if "trf_vectors" in nlp.pipe_names:  # Disable trf_vectors if it exists
+            nlp.disable_pipe("trf_vectors")
+    except Exception as e:
+        st.warning(f"Failed to disable 'trf_vectors': {e}")
+    return nlp
+
+
+# Function to load model in a subprocess to avoid conflicts
+def load_model_in_subprocess(model_name):
+    script = (
+        "import spacy, json; "
+        'nlp = spacy.load("' + model_name + '"); '
+        "print(json.dumps(nlp.meta))"
+    )
+    result = subprocess.run(["python", "-c", script], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to load model {model_name}: {result.stderr}")
+    return json.loads(result.stdout)
+
+
+model_name = "la_core_web_lg"  # Hardcoded to use only the lg model
+nlp = spacy.load(model_name)  # Directly load the lg model
+
+st.write(f"Loaded model: {model_name} (v{spacy.info(model_name)['version']})")
 
 df = None
 
@@ -67,7 +100,7 @@ text = st.text_area(
 )
 if st.button("Analyze"):
     df = analyze_text(text)
-    st.text(f"Analyzed {len(df)} tokens with {model_selectbox} model.")
+    st.text(f"Analyzed {len(df)} tokens with {model_name} model.")
     st.dataframe(df, width=1000)
 
     @st.cache_data
