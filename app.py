@@ -16,5 +16,6 @@ st.markdown(
     ### See the demos
     - [Get basic spaCy data from a short text](parsing_demo)
     - [Visualize a custom span label](custom_label_demo), here tokens covered by the [DCC Core Latin Vocabulary](https://dcc.dickinson.edu/latin-core-list1)
+    - [Segment a paragraph into sentences](senter_demo)
 """
 )
