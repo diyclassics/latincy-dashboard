@@ -6,5 +6,6 @@ pandas==2.3.0
 spacy==3.8.7
 spacy_lookups_data @ git+https://github.com/diyclassics/spacy-lookups-data.git#egg=spacy-lookups-data
 spacy-streamlit==1.0.6
+latincy-uv @ git+https://github.com/diyclassics/latincy-uv.git
 streamlit==1.45.1
 watchdog==6.0.0
