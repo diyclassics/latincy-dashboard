@@ -169,7 +169,7 @@ tab1, tab2 = st.tabs(["Find Similar Words", "Compare Two Words"])
 
 with tab1:
     word = st.text_input("Enter a Latin word:", value="rex", key="sim_word")
-    n_results = st.slider("Number of results:", min_value=5, max_value=50, value=15)
+    n_results = st.slider("Number of results:", min_value=1, max_value=10, value=3)
 
     if st.button("Find Similar", key="btn_similar"):
         token = nlp.vocab[word]
