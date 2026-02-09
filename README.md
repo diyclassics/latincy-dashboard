@@ -4,7 +4,7 @@ emoji: 🌍
 colorFrom: yellow
 colorTo: blue
 sdk: streamlit
-sdk_version: 1.19.0
+sdk_version: 1.45.1
 app_file: app.py
 pinned: false
 license: mit
@@ -12,9 +12,25 @@ license: mit
 
 # LatinCy Dashboard
 
-Streamlit dashboard for exploring features of the LatinCy models; currently running la_core_web_lg, la_core_web_md, la_core_web_sm v.3.7.2.
+Streamlit dashboard for exploring features of the [LatinCy](https://huggingface.co/latincy) models (la_core_web_lg, la_core_web_md, la_core_web_sm v3.8.0).
 
 View dashboard [here](https://latincy.streamlit.app/)
 
- Written by [diyclassics](https://github.com/diyclassics) April 2023, updated January 2024.
- 
+## Demos
+
+- **Parsing** — UD/CoNLL-U column output (form, lemma, UPOS, XPOS, feats, head, deprel) with TSV export
+- **Custom Labels** — Visualize tokens covered by the [DCC Core Latin Vocabulary](https://dcc.dickinson.edu/latin-core-list1)
+- **Sentence Segmentation** — Segment paragraphs into sentences with text export
+- **Named Entity Recognition** — Highlight people, places, and groups (PER, LOC, NORP)
+- **Dependency Trees** — Visualize grammatical structure with displaCy
+- **Word Similarity** — Explore floret subword vector similarity between Latin words
+- **Morphology** — Analyze lemma, POS, case, gender, tense, mood, and more per token
+
+## Setup
+
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Written by [diyclassics](https://github.com/diyclassics). April 2023, updated February 2026.
