@@ -58,4 +58,5 @@ if st.button("Parse"):
             sent_doc,
             title="",
             displacy_options={"compact": compact},
+            key=f"dep_sent_{i}",
         )
