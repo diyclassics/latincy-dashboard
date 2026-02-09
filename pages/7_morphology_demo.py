@@ -5,7 +5,7 @@ import pandas as pd
 st.set_page_config(page_title="Morphology Demo", layout="wide")
 st.sidebar.header("Morphology Demo")
 
-default_text = """Arma virumque cano, Troiae qui primus ab oris Italiam, fato profugus, Laviniaque venit litora."""
+default_text = """Quaedam tempora eripiuntur nobis, quaedam subducuntur, quaedam effluunt."""
 
 # Human-readable labels for morphological feature values.
 # Keyed by (Feature, Value) to disambiguate collisions like
@@ -148,6 +148,7 @@ if st.button("Analyze Morphology"):
     doc = nlp(text)
 
     rows = []
+    token_data = []
     for token in doc:
         if token.is_punct or token.is_space:
             continue
@@ -159,6 +160,22 @@ if st.button("Analyze Morphology"):
                 "Features": format_morph_readable(token.morph),
             }
         )
+        token_data.append(
+            {
+                "text": token.text,
+                "lemma": token.lemma_,
+                "pos": token.pos_,
+                "tag": token.tag_,
+                "morph": token.morph.to_dict(),
+            }
+        )
+
+    st.session_state["morph_rows"] = rows
+    st.session_state["morph_tokens"] = token_data
+
+if "morph_rows" in st.session_state:
+    rows = st.session_state["morph_rows"]
+    token_data = st.session_state["morph_tokens"]
 
     df = pd.DataFrame(rows)
     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -166,26 +183,24 @@ if st.button("Analyze Morphology"):
     st.markdown("---")
     st.markdown("**Select a word for detailed analysis:**")
 
-    # Build options with index to disambiguate duplicate tokens
-    content_tokens = [t for t in doc if not t.is_punct and not t.is_space]
-    word_options = [f"{t.text} ({i + 1})" for i, t in enumerate(content_tokens)]
+    word_options = [f"{t['text']} ({i + 1})" for i, t in enumerate(token_data)]
     selected_idx = st.selectbox(
         "Word:", range(len(word_options)), format_func=lambda i: word_options[i],
         key="morph_word",
     )
 
     if selected_idx is not None:
-        token = content_tokens[selected_idx]
+        t = token_data[selected_idx]
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown(f"### {token.text}")
-            st.markdown(f"**Lemma:** {token.lemma_}")
+            st.markdown(f"### {t['text']}")
+            st.markdown(f"**Lemma:** {t['lemma']}")
             st.markdown(
-                f"**Part of Speech:** {POS_LABELS.get(token.pos_, token.pos_)}"
+                f"**Part of Speech:** {POS_LABELS.get(t['pos'], t['pos'])}"
             )
-            st.markdown(f"**Fine-grained Tag:** {token.tag_}")
+            st.markdown(f"**Fine-grained Tag:** {t['tag']}")
         with col2:
-            morph_dict = token.morph.to_dict()
+            morph_dict = t["morph"]
             if morph_dict:
                 st.markdown("**Morphological Features:**")
                 for feat, val in morph_dict.items():

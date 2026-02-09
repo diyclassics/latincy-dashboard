@@ -5,7 +5,7 @@ from spacy_streamlit import visualize_parser
 st.set_page_config(page_title="Dependency Demo", layout="wide")
 st.sidebar.header("Dependency Demo")
 
-default_text = """Quo usque tandem abutere, Catilina, patientia nostra? Quam diu etiam furor iste tuus nos eludet? Quem ad finem sese effrenata iactabit audacia?"""
+default_text = """Haec narrantur a poetis de Perseo. Perseus filius erat Iovis, maximi deorum; avus eius Acrisius appellabatur."""
 
 st.title("Latin Dependency Tree Visualizer")
 

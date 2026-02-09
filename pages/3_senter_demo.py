@@ -19,7 +19,7 @@ st.title("Latin Sentence Segmenter")
 # Input text area
 text = st.text_area(
     "Enter a paragraph of Latin text to segment into sentences:",
-    value="Decrevit quondam senatus, ut L. Opimius consul videret, ne quid res publica detrimenti caperet; nox nulla intercessit; interfectus est propter quasdam seditionum suspiciones C. Gracchus, clarissimo patre, avo, maioribus, occisus est cum liberis M. Fulvius consularis. Simili senatus consulto C. Mario et L. Valerio consulibus est permissa res publica; num unum diem postea L. Saturninum tribunum pl. et C. Servilium praetorem mors ac rei publicae poena remorata est? At [vero] nos vicesimum iam diem patimur hebescere aciem horum auctoritatis. Habemus enim huiusce modi senatus consultum, verum inclusum in tabulis tamquam in vagina reconditum, quo ex senatus consulto confestim te interfectum esse, Catilina, convenit. Vivis, et vivis non ad deponendam, sed ad confirmandam audaciam. Cupio, patres conscripti, me esse clementem, cupio in tantis rei publicae periculis me non dissolutum videri, sed iam me ipse inertiae nequitiaeque condemno.",
+    value="Lucius Catilina, nobili genere natus, fuit magna vi et animi et corporis, sed ingenio malo pravoque. Huic ab adulescentia bella intestina, caedes, rapinae, discordia civilis grata fuere ibique iuventutem suam exercuit. Corpus patiens inediae, algoris, vigiliae supra quam cuiquam credibile est. Animus audax, subdolus, varius, cuius rei lubet simulator ac dissimulator, alieni adpetens, sui profusus, ardens in cupiditatibus; satis eloquentiae, sapientiae parum. Vastus animus inmoderata, incredibilia, nimis alta semper cupiebat.",
     height=200,
 )
 

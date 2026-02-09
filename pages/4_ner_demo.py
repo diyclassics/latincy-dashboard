@@ -5,7 +5,7 @@ from spacy_streamlit import visualize_ner
 st.set_page_config(page_title="NER Demo", layout="wide")
 st.sidebar.header("NER Demo")
 
-default_text = """Gallia est omnis divisa in partes tres, quarum unam incolunt Belgae, aliam Aquitani, tertiam qui ipsorum lingua Celtae, nostra Galli appellantur. Hi omnes lingua, institutis, legibus inter se differunt. Gallos ab Aquitanis Garumna flumen, a Belgis Matrona et Sequana dividit."""
+default_text = """Iason et Medea e Thessalia expulsi ad urbem Corinthum venerunt, cuius urbis Creon quidam regnum tum obtinebat."""
 
 st.title("Latin Named Entity Recognition")
 
