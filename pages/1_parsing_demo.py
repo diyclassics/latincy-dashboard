@@ -24,31 +24,47 @@ def format_morph(morph):
 def analyze_text(text):
     doc = nlp(text)
     rows = []
-    for token in doc[:500]:
-        rows.append(
-            (
-                token.text,
-                token.norm_,
-                token.lower_,
-                token.lemma_,
-                token.pos_,
-                token.tag_,
-                token.dep_,
-                format_morph(token.morph),
-                token.ent_type_,
+    token_count = 0
+    for sent_idx, sent in enumerate(doc.sents):
+        sent_id = f"s{sent_idx + 1}"
+        sent_start = sent.start
+        for token_idx, token in enumerate(sent):
+            if token_count >= 500:
+                break
+            token_id = token_idx + 1
+            if token.head == token:
+                head = 0
+            else:
+                head = token.head.i - sent_start + 1
+            rows.append(
+                (
+                    sent_id,
+                    token_id,
+                    token.text,
+                    token.lemma_,
+                    token.pos_,
+                    token.tag_,
+                    format_morph(token.morph),
+                    head,
+                    token.dep_,
+                    token.ent_type_,
+                )
             )
-        )
+            token_count += 1
+        if token_count >= 500:
+            break
     df = pd.DataFrame(
         rows,
         columns=[
-            "text",
-            "norm",
-            "lower",
+            "sent_id",
+            "token_id",
+            "form",
             "lemma",
-            "pos",
-            "tag",
-            "dep",
-            "morph",
+            "upos",
+            "xpos",
+            "feats",
+            "head",
+            "deprel",
             "ent_type",
         ],
     )
@@ -100,8 +116,9 @@ text = st.text_area(
 )
 if st.button("Analyze"):
     df = analyze_text(text)
-    st.text(f"Analyzed {len(df)} tokens with {model_name} model.")
-    st.dataframe(df, width=1000)
+    sent_count = df["sent_id"].nunique()
+    st.text(f"Analyzed {len(df)} tokens in {sent_count} sentences with {model_name} model.")
+    st.dataframe(df, width=1200, hide_index=True)
 
     @st.cache_data
     def convert_df(df):
