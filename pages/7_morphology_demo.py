@@ -135,77 +135,111 @@ def load_model(model_name):
 
 nlp = load_model(model_selectbox)
 
-text = st.text_area(
-    "Enter Latin text to analyze (max ~200 tokens):", value=default_text, height=200
-)
+tab1, tab2 = st.tabs(["Analyze", "About"])
 
-if st.button("Analyze Morphology"):
-    tokens = text.split()
-    if len(tokens) > 200:
-        st.warning("Text trimmed to ~200 tokens.")
-        text = " ".join(tokens[:200])
-
-    doc = nlp(text)
-
-    rows = []
-    token_data = []
-    for token in doc:
-        if token.is_punct or token.is_space:
-            continue
-        rows.append(
-            {
-                "Token": token.text,
-                "Lemma": token.lemma_,
-                "POS": POS_LABELS.get(token.pos_, token.pos_),
-                "Features": format_morph_readable(token.morph),
-            }
-        )
-        token_data.append(
-            {
-                "text": token.text,
-                "lemma": token.lemma_,
-                "pos": token.pos_,
-                "tag": token.tag_,
-                "morph": token.morph.to_dict(),
-            }
-        )
-
-    st.session_state["morph_rows"] = rows
-    st.session_state["morph_tokens"] = token_data
-
-if "morph_rows" in st.session_state:
-    rows = st.session_state["morph_rows"]
-    token_data = st.session_state["morph_tokens"]
-
-    df = pd.DataFrame(rows)
-    st.dataframe(df, use_container_width=True, hide_index=True)
-
-    st.markdown("---")
-    st.markdown("**Select a word for detailed analysis:**")
-
-    word_options = [f"{t['text']} ({i + 1})" for i, t in enumerate(token_data)]
-    selected_idx = st.selectbox(
-        "Word:", range(len(word_options)), format_func=lambda i: word_options[i],
-        key="morph_word",
+with tab1:
+    text = st.text_area(
+        "Enter Latin text to analyze (max ~200 tokens):", value=default_text, height=200
     )
 
-    if selected_idx is not None:
-        t = token_data[selected_idx]
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f"### {t['text']}")
-            st.markdown(f"**Lemma:** {t['lemma']}")
-            st.markdown(
-                f"**Part of Speech:** {POS_LABELS.get(t['pos'], t['pos'])}"
+    if st.button("Analyze Morphology"):
+        tokens = text.split()
+        if len(tokens) > 200:
+            st.warning("Text trimmed to ~200 tokens.")
+            text = " ".join(tokens[:200])
+
+        doc = nlp(text)
+
+        rows = []
+        token_data = []
+        for token in doc:
+            if token.is_punct or token.is_space:
+                continue
+            rows.append(
+                {
+                    "Token": token.text,
+                    "Lemma": token.lemma_,
+                    "POS": POS_LABELS.get(token.pos_, token.pos_),
+                    "Features": format_morph_readable(token.morph),
+                }
             )
-            st.markdown(f"**Fine-grained Tag:** {t['tag']}")
-        with col2:
-            morph_dict = t["morph"]
-            if morph_dict:
-                st.markdown("**Morphological Features:**")
-                for feat, val in morph_dict.items():
-                    feat_label = FEATURE_LABELS.get(feat, feat)
-                    val_label = _get_val_label(feat, val)
-                    st.markdown(f"- {feat_label}: **{val_label}**")
-            else:
-                st.info("No morphological features available for this token.")
+            token_data.append(
+                {
+                    "text": token.text,
+                    "lemma": token.lemma_,
+                    "pos": token.pos_,
+                    "tag": token.tag_,
+                    "morph": token.morph.to_dict(),
+                }
+            )
+
+        st.session_state["morph_rows"] = rows
+        st.session_state["morph_tokens"] = token_data
+
+    if "morph_rows" in st.session_state:
+        rows = st.session_state["morph_rows"]
+        token_data = st.session_state["morph_tokens"]
+
+        df = pd.DataFrame(rows)
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+        st.markdown("---")
+        st.markdown("**Select a word for detailed analysis:**")
+
+        word_options = [f"{t['text']} ({i + 1})" for i, t in enumerate(token_data)]
+        selected_idx = st.selectbox(
+            "Word:", range(len(word_options)), format_func=lambda i: word_options[i],
+            key="morph_word",
+        )
+
+        if selected_idx is not None:
+            t = token_data[selected_idx]
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"### {t['text']}")
+                st.markdown(f"**Lemma:** {t['lemma']}")
+                st.markdown(
+                    f"**Part of Speech:** {POS_LABELS.get(t['pos'], t['pos'])}"
+                )
+                st.markdown(f"**Fine-grained Tag:** {t['tag']}")
+            with col2:
+                morph_dict = t["morph"]
+                if morph_dict:
+                    st.markdown("**Morphological Features:**")
+                    for feat, val in morph_dict.items():
+                        feat_label = FEATURE_LABELS.get(feat, feat)
+                        val_label = _get_val_label(feat, val)
+                        st.markdown(f"- {feat_label}: **{val_label}**")
+                else:
+                    st.info("No morphological features available for this token.")
+
+with tab2:
+    st.markdown("""
+    ## About
+
+    This demo shows the **morphological analysis** for each word in a Latin
+    text — the full grammatical description that LatinCy predicts.
+
+    ### Features Analyzed
+
+    | Feature | Values | Applies To |
+    |---------|--------|------------|
+    | **Case** | Nom, Gen, Dat, Acc, Abl, Voc, Loc | Nouns, adjectives, pronouns |
+    | **Number** | Singular, Plural | Nouns, verbs, adjectives |
+    | **Gender** | Masculine, Feminine, Neuter | Nouns, adjectives |
+    | **Tense** | Present, Imperfect, Future, Perfect, Pluperfect | Verbs |
+    | **Mood** | Indicative, Subjunctive, Imperative | Verbs |
+    | **Voice** | Active, Passive | Verbs |
+    | **Person** | 1st, 2nd, 3rd | Verbs |
+    | **Degree** | Positive, Comparative, Superlative | Adjectives, adverbs |
+    | **VerbForm** | Finite, Gerund, Gerundive, Participle, Supine | Verbs |
+
+    ### How It Works
+
+    LatinCy uses a multi-task neural network (morphologizer component) trained
+    on Universal Dependencies treebanks to predict all features simultaneously.
+
+    ### Reference
+
+    [UD Morphological Features](https://universaldependencies.org/u/feat/index.html)
+    """)

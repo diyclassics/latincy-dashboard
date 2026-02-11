@@ -165,7 +165,7 @@ def get_candidate_vectors(_nlp, candidates):
 
 candidate_vectors = get_candidate_vectors(nlp, CANDIDATES)
 
-tab1, tab2 = st.tabs(["Find Similar Words", "Compare Two Words"])
+tab1, tab2, tab3 = st.tabs(["Find Similar Words", "Compare Two Words", "About"])
 
 with tab1:
     word = st.text_input("Enter a Latin word:", value="rex", key="sim_word")
@@ -223,3 +223,41 @@ with tab2:
                 st.info("These words are **moderately similar**.")
             else:
                 st.warning("These words are **not very similar**.")
+
+with tab3:
+    st.markdown("""
+    ## About
+
+    This demo explores **word vector similarity** using LatinCy's
+    [floret](https://github.com/facebookresearch/floret) subword embeddings.
+
+    ### What Are Floret Vectors?
+
+    Floret is a compact subword embedding method (based on fastText) that:
+    - Handles **morphologically rich** languages like Latin well
+    - Produces vectors for **unseen words** via subword hashing
+    - Uses much less memory than full fastText models
+
+    ### How Similarity Works
+
+    Similarity is measured by **cosine similarity** between word vectors:
+    - **1.0** = identical direction (very similar)
+    - **0.0** = orthogonal (unrelated)
+    - **< 0** = opposite (rare in practice)
+
+    ### Candidate List
+
+    "Find Similar Words" searches against a curated list of ~600 lemmas
+    from the DCC Core Latin Vocabulary. This is necessary because floret
+    vectors use hashing and don't maintain a full vocabulary index.
+
+    ### Available Models
+
+    - **la_core_web_md**: 50,000 hash buckets (smaller, faster)
+    - **la_core_web_lg**: 200,000 hash buckets (more precise)
+    - The sm model does not include vectors
+
+    ### Source
+
+    [GitHub: diyclassics/latincy](https://github.com/diyclassics/latincy)
+    """)

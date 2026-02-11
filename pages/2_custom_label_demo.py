@@ -51,13 +51,46 @@ nlp = spacy.load(model_selectbox)
 # Add component to pipeline
 nlp.add_pipe("dcc_core", last=True)
 
-text = st.text_area(
-    "Enter some text to analyze (max 100 tokens)", value=default_text, height=200
-)
-if st.button("Analyze"):
-    text = " ".join(text.split()[:100])
-    doc = nlp(text.replace("v", "u").replace("V", "U").lower())
-    len_doc = len([token for token in doc if not token.is_punct])
-    len_dcc = len(doc.spans["dcc_core"])
-    st.text(f"Analyzed {len_doc} tokens with {len_dcc} core vocabulary items ({round((len_dcc/len_doc)*100, 2)}%) ")
-    visualize_spans(doc, spans_key="dcc_core", show_table=False, displacy_options={"colors": {"CORE": "#09a3d5"}})
+tab1, tab2 = st.tabs(["Analyze", "About"])
+
+with tab1:
+    text = st.text_area(
+        "Enter some text to analyze (max 100 tokens)", value=default_text, height=200
+    )
+    if st.button("Analyze"):
+        text = " ".join(text.split()[:100])
+        doc = nlp(text.replace("v", "u").replace("V", "U").lower())
+        len_doc = len([token for token in doc if not token.is_punct])
+        len_dcc = len(doc.spans["dcc_core"])
+        st.text(f"Analyzed {len_doc} tokens with {len_dcc} core vocabulary items ({round((len_dcc/len_doc)*100, 2)}%) ")
+        visualize_spans(doc, spans_key="dcc_core", show_table=False, displacy_options={"colors": {"CORE": "#09a3d5"}})
+
+with tab2:
+    st.markdown("""
+    ## About
+
+    This demo highlights words from the **DCC Core Latin Vocabulary** — a
+    curated list of ~1,000 high-frequency Latin lemmas compiled by
+    [Dickinson College](https://dcc.dickinson.edu/vocab/core-vocabulary).
+
+    ### How It Works
+
+    - A spaCy `Matcher` checks each token's lemma against the DCC core list
+    - Matching tokens are highlighted in the text
+    - The percentage shows how much of the text consists of core vocabulary
+
+    ### Use Cases
+
+    - **Reading difficulty estimation**: higher core % = more accessible text
+    - **Vocabulary coverage analysis**: identify which texts rely on common vs. rare words
+    - **Teaching**: visualize which words students should already know
+
+    ### Note
+
+    Input text is normalized to u-only spelling (v→u) before matching,
+    since the DCC list uses classical u-spelling.
+
+    ### Source
+
+    [DCC Core Latin Vocabulary](https://dcc.dickinson.edu/vocab/core-vocabulary)
+    """)

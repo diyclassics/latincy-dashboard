@@ -111,30 +111,62 @@ st.write(f"Loaded model: {model_name} (v{spacy.info(model_name)['version']})")
 
 df = None
 
-text = st.text_area(
-    "Enter some text to analyze (max 500 tokens)", value=default_text, height=200
-)
-if st.button("Analyze"):
-    df = analyze_text(text)
-    sent_count = df["sent_id"].nunique()
-    st.text(f"Analyzed {len(df)} tokens in {sent_count} sentences with {model_name} model.")
-    st.dataframe(df, width=1200, hide_index=True)
+tab1, tab2 = st.tabs(["Analyze", "About"])
 
-    @st.cache_data
-    def convert_df(df):
-        return df.to_csv(index=False, sep="\t").encode("utf-8")
-
-    csv = convert_df(df)
-
-    def create_timestamp():
-        return datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-
-    # nb: clicking this button resets app! Open streamlit issue, as of 4.15.2023; cf. https://github.com/streamlit/streamlit/issues/4382
-    st.markdown("*NB: Clicking the download button will reset the app after download!*")
-    st.download_button(
-        "Press to Download",
-        csv,
-        f"latincy-analysis-{create_timestamp()}.tsv",
-        "text/csv",
-        key="download-csv",
+with tab1:
+    text = st.text_area(
+        "Enter some text to analyze (max 500 tokens)", value=default_text, height=200
     )
+    if st.button("Analyze"):
+        df = analyze_text(text)
+        sent_count = df["sent_id"].nunique()
+        st.text(f"Analyzed {len(df)} tokens in {sent_count} sentences with {model_name} model.")
+        st.dataframe(df, width=1200, hide_index=True)
+
+        @st.cache_data
+        def convert_df(df):
+            return df.to_csv(index=False, sep="\t").encode("utf-8")
+
+        csv = convert_df(df)
+
+        def create_timestamp():
+            return datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+
+        # nb: clicking this button resets app! Open streamlit issue, as of 4.15.2023; cf. https://github.com/streamlit/streamlit/issues/4382
+        st.markdown("*NB: Clicking the download button will reset the app after download!*")
+        st.download_button(
+            "Press to Download",
+            csv,
+            f"latincy-analysis-{create_timestamp()}.tsv",
+            "text/csv",
+            key="download-csv",
+        )
+
+with tab2:
+    st.markdown("""
+    ## About
+
+    This demo produces a **CoNLL-U style** tabular analysis of Latin text,
+    showing the full linguistic annotation for each token.
+
+    ### Output Columns
+
+    | Column | Description |
+    |--------|-------------|
+    | **sent_id** | Sentence identifier |
+    | **token_id** | Position within sentence |
+    | **form** | Surface form (as written) |
+    | **lemma** | Dictionary headword |
+    | **upos** | Universal POS tag (NOUN, VERB, ADJ, etc.) |
+    | **xpos** | Language-specific POS tag |
+    | **feats** | Morphological features (Case, Number, Tense, etc.) |
+    | **head** | Index of syntactic head (0 = root) |
+    | **deprel** | Dependency relation (nsubj, obj, obl, etc.) |
+    | **ent_type** | Named entity type (PER, LOC, NORP) |
+
+    ### Notes
+
+    - Output is limited to 500 tokens
+    - TSV export follows [CoNLL-U format](https://universaldependencies.org/format.html)
+    - Powered by [LatinCy](https://github.com/diyclassics/latincy)
+    """)

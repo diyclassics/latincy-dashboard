@@ -39,24 +39,61 @@ def load_model(model_name):
 
 nlp = load_model(model_selectbox)
 
-text = st.text_area(
-    "Enter Latin text (keep to 3–5 sentences for readable trees):",
-    value=default_text,
-    height=200,
-)
+tab1, tab2 = st.tabs(["Parse", "About"])
 
-if st.button("Parse"):
-    doc = nlp(text)
-    sents = list(doc.sents)
-    if len(sents) > 10:
-        st.warning("Showing first 10 sentences only.")
-        sents = sents[:10]
-    for i, sent in enumerate(sents):
-        st.markdown(f"**Sentence {i + 1}**")
-        sent_doc = nlp(sent.text)
-        visualize_parser(
-            sent_doc,
-            title="",
-            displacy_options={"compact": compact},
-            key=f"dep_sent_{i}",
-        )
+with tab1:
+    text = st.text_area(
+        "Enter Latin text (keep to 3–5 sentences for readable trees):",
+        value=default_text,
+        height=200,
+    )
+
+    if st.button("Parse"):
+        doc = nlp(text)
+        sents = list(doc.sents)
+        if len(sents) > 10:
+            st.warning("Showing first 10 sentences only.")
+            sents = sents[:10]
+        for i, sent in enumerate(sents):
+            st.markdown(f"**Sentence {i + 1}**")
+            sent_doc = nlp(sent.text)
+            visualize_parser(
+                sent_doc,
+                title="",
+                displacy_options={"compact": compact},
+                key=f"dep_sent_{i}",
+            )
+
+with tab2:
+    st.markdown("""
+    ## About
+
+    This demo renders **dependency parse trees** using the
+    [Universal Dependencies](https://universaldependencies.org/) framework.
+
+    ### Common Dependency Relations
+
+    | Label | Relation | Example |
+    |-------|----------|---------|
+    | **nsubj** | Nominal subject | *Caesar* venit |
+    | **obj** | Direct object | librum *legit* |
+    | **obl** | Oblique (prep. phrases) | *in urbe* |
+    | **amod** | Adjectival modifier | vir *bonus* |
+    | **nmod** | Nominal modifier | *urbis* murus |
+    | **advmod** | Adverbial modifier | *bene* facit |
+    | **conj** | Conjunct | *Caesar et Pompeius* |
+    | **cop** | Copula | bonus *est* |
+    | **xcomp** | Open clausal complement | *dicere* vult |
+    | **advcl** | Adverbial clause | *cum venisset* |
+
+    ### Notes
+
+    - Trees follow UD v2 annotation guidelines
+    - The root of each sentence is the main predicate
+    - Compact mode collapses the tree vertically for long sentences
+    - Trained on 5 Latin UD treebanks: Perseus, PROIEL, ITTB, LLCT, UDante
+
+    ### Reference
+
+    [Universal Dependencies for Latin](https://universaldependencies.org/la/)
+    """)
