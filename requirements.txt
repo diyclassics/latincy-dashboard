@@ -26,7 +26,12 @@ spacy-legacy==3.0.12
 spacy-loggers==1.0.5
 
 # --- LatinCy pipeline components (pinned to model-compatible versions). ---
-latincy-preprocess==0.2.0
+# preprocess 0.3.2 carries the tokenizer / U-V / enclitic fixes that model
+# v3.9.6 widened its compat range (<0.4.0) to adopt. Testing whether it is
+# stable on HF with the rest of the stack pinned — if it segfaults, the Rust
+# wheel is the culprit and this drops back to 0.2.0; if it holds, we keep the
+# fixes. All other pins held constant so this isolates preprocess.
+latincy-preprocess==0.3.2
 la-latincy-lookups==1.0.0
 latincy-lexicon==0.5.0
 latincy-diacritics @ https://huggingface.co/latincy/latincy-diacritics/resolve/main/latincy_diacritics-0.1.0-py3-none-any.whl
