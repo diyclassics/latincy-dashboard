@@ -1,15 +1,45 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
-altair<5
+
+# LatinCy models — all v3.9.6 (the 3.9.5 lg wheel was deleted from HF; 3.9.6
+# wheels exist for all three).
 la-core-web-lg @ https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-3.9.6-py3-none-any.whl
 la-core-web-md @ https://huggingface.co/latincy/la_core_web_md/resolve/main/la_core_web_md-3.9.6-py3-none-any.whl
 la-core-web-sm @ https://huggingface.co/latincy/la_core_web_sm/resolve/main/la_core_web_sm-3.9.6-py3-none-any.whl
-pandas==2.3.0
+
+# --- Pinned spaCy + native stack (matches the known-good local venv). ---
+# Previously these were unpinned, so fresh cloud builds drifted to newer wheels
+# and the app segfaulted (SIGSEGV) at runtime — notably latincy-preprocess,
+# which ships a compiled (Rust) component and so has platform-specific wheels.
+# Locking to the versions that run cleanly locally is the fix; bump these
+# deliberately and together in future, then redeploy and watch.
 spacy==3.8.11
-la-latincy-lookups>=1.0.0
-spacy-streamlit==1.0.6
+thinc==8.3.11
+blis==1.3.3
+numpy==2.4.4
+srsly==2.5.3
+catalogue==2.0.10
+wasabi==1.1.3
+preshed==3.0.13
+cymem==2.0.13
+murmurhash==1.0.15
+spacy-legacy==3.0.12
+spacy-loggers==1.0.5
+
+# --- LatinCy pipeline components (pinned to model-compatible versions). ---
+latincy-preprocess==0.2.0
+la-latincy-lookups==1.0.0
+latincy-lexicon==0.5.0
 latincy-diacritics @ https://huggingface.co/latincy/latincy-diacritics/resolve/main/latincy_diacritics-0.1.0-py3-none-any.whl
-latincy-preprocess>=0.2.0
-latincy-lexicon>=0.5.0
-latincy-vocab>=0.1.0
+
+# latincy-vocab intentionally omitted: the only PyPI release (0.1.0) predates
+# the vocab demo and lacks vocabbuilder.data.gloss_provider, so pages/14 cannot
+# import on a cloud deploy. Re-add this dep and pages/14 once latincy-vocab is
+# republished to PyPI with the current code.
+
+# --- App stack (pinned to local). ---
+spacy-streamlit==1.0.6
+altair==4.2.2
+pandas==2.3.0
 streamlit==1.45.1
 watchdog==6.0.0
+pydantic==2.13.4
