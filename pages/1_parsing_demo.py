@@ -89,11 +89,28 @@ with tab1:
         df = analyze_text(text)
         sent_count = df["sent_id"].nunique()
         st.text(f"Analyzed {len(df)} tokens in {sent_count} sentences with {model_name} model.")
-        # Static HTML table (st.table) instead of the interactive st.dataframe:
-        # the dataframe's JS grid silently fails to paint behind HF Spaces'
-        # proxy (renders blank after the summary line), while a plain HTML
-        # table always renders. Index hidden for a clean CoNLL-U-style view.
-        st.table(df.style.hide(axis="index"))
+        # Use use_container_width instead of a fixed width=1200: the fixed
+        # pixel width made st.dataframe render blank behind HF Spaces' proxy
+        # (the summary line showed but the grid never painted). The lexicon
+        # demo already renders fine this way. Column widths tuned so the wide
+        # feats/lemma columns get room and the numeric columns stay narrow.
+        st.dataframe(
+            df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "sent_id": st.column_config.TextColumn(width="small"),
+                "token_id": st.column_config.NumberColumn(width="small"),
+                "form": st.column_config.TextColumn(width="small"),
+                "lemma": st.column_config.TextColumn(width="small"),
+                "upos": st.column_config.TextColumn(width="small"),
+                "xpos": st.column_config.TextColumn(width="small"),
+                "feats": st.column_config.TextColumn(width="large"),
+                "head": st.column_config.NumberColumn(width="small"),
+                "deprel": st.column_config.TextColumn(width="small"),
+                "ent_type": st.column_config.TextColumn(width="small"),
+            },
+        )
 
         @st.cache_data
         def convert_df(df):
