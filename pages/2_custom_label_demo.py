@@ -46,10 +46,19 @@ model_selectbox = st.sidebar.selectbox(
     ("la_core_web_lg", "la_core_web_md", "la_core_web_sm")
 )
 
-nlp = spacy.load(model_selectbox)
+# This demo mutates its pipeline (adds the dcc_core component), so it caches
+# its OWN instance rather than sharing the read-only model from model_helpers —
+# mutating a shared model would leak dcc_core into the other demos. The guard
+# keeps add_pipe idempotent across Streamlit reruns of the cached instance.
+@st.cache_resource
+def load_dcc_model(model_name):
+    nlp = spacy.load(model_name)
+    if "dcc_core" not in nlp.pipe_names:
+        nlp.add_pipe("dcc_core", last=True)
+    return nlp
 
-# Add component to pipeline
-nlp.add_pipe("dcc_core", last=True)
+
+nlp = load_dcc_model(model_selectbox)
 
 tab1, tab2 = st.tabs(["Analyze", "About"])
 

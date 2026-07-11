@@ -1,6 +1,7 @@
 import streamlit as st
-import spacy
 from spacy_streamlit import visualize_parser
+
+from model_helpers import load_model
 
 st.set_page_config(page_title="Dependency Demo", layout="wide")
 st.sidebar.header("Dependency Demo")
@@ -30,11 +31,6 @@ model_selectbox = st.sidebar.selectbox(
 )
 
 compact = st.sidebar.checkbox("Compact mode", value=False)
-
-
-@st.cache_resource
-def load_model(model_name):
-    return spacy.load(model_name)
 
 
 nlp = load_model(model_selectbox)

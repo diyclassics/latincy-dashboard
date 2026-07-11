@@ -1,6 +1,7 @@
 import streamlit as st
-import spacy
 from spacy_streamlit import visualize_ner
+
+from model_helpers import load_model
 
 st.set_page_config(page_title="NER Demo", layout="wide")
 st.sidebar.header("NER Demo")
@@ -21,11 +22,6 @@ and groups — using LatinCy's NER component.
 model_selectbox = st.sidebar.selectbox(
     "Choose model:", ("la_core_web_lg", "la_core_web_md", "la_core_web_sm")
 )
-
-
-@st.cache_resource
-def load_model(model_name):
-    return spacy.load(model_name)
 
 
 nlp = load_model(model_selectbox)

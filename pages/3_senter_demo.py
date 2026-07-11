@@ -1,17 +1,13 @@
 import streamlit as st
-import spacy
 import datetime
+
+from model_helpers import load_model
 
 st.set_page_config(page_title="Sentence Segmenter", layout="wide")
 st.sidebar.header("Sentence Segmenter")
 
 
-# Load spaCy model (Latin large)
-@st.cache_resource
-def load_model():
-    return spacy.load("la_core_web_lg")
-
-
+# Shared, cached lg model (warmed by the home-page preloader)
 nlp = load_model()
 
 st.title("Latin Sentence Segmenter")

@@ -1,11 +1,8 @@
 import streamlit as st
-import spacy
 import pandas as pd
 import datetime
-import gc
-import subprocess
-import json
-from spacy.util import registry
+
+from model_helpers import load_model
 
 st.set_page_config(page_title="Parsing Demo", layout="wide")
 st.sidebar.header("Parsing Demo")
@@ -73,41 +70,12 @@ def analyze_text(text):
 
 st.title("LatinCy Text Analyzer")
 
-# Using object notation
-first_model = "la_core_web_lg"
-first_model_version = spacy.info(first_model)["version"]
+# Shared, cached lg model — warmed at startup by the home-page preloader, so
+# this returns instantly on all but the very first (cold) load.
+model_name = "la_core_web_lg"
+nlp = load_model(model_name)
 
-
-# Function to unload the current model
-@st.cache_resource
-def load_model(model_name):
-    gc.collect()  # Attempt to free memory
-    nlp = spacy.load(model_name)
-    try:
-        if "trf_vectors" in nlp.pipe_names:  # Disable trf_vectors if it exists
-            nlp.disable_pipe("trf_vectors")
-    except Exception as e:
-        st.warning(f"Failed to disable 'trf_vectors': {e}")
-    return nlp
-
-
-# Function to load model in a subprocess to avoid conflicts
-def load_model_in_subprocess(model_name):
-    script = (
-        "import spacy, json; "
-        'nlp = spacy.load("' + model_name + '"); '
-        "print(json.dumps(nlp.meta))"
-    )
-    result = subprocess.run(["python", "-c", script], capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(f"Failed to load model {model_name}: {result.stderr}")
-    return json.loads(result.stdout)
-
-
-model_name = "la_core_web_lg"  # Hardcoded to use only the lg model
-nlp = spacy.load(model_name)  # Directly load the lg model
-
-st.write(f"Loaded model: {model_name} (v{spacy.info(model_name)['version']})")
+st.write(f"Loaded model: {model_name} (v{nlp.meta['version']})")
 
 df = None
 
