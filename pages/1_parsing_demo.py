@@ -86,14 +86,21 @@ with tab1:
         "Enter some text to analyze (max 500 tokens)", value=default_text, height=200
     )
     if st.button("Analyze"):
-        df = analyze_text(text)
+        st.session_state["parse_df"] = analyze_text(text)
+
+    # Render the results from session_state, NOT inside the `if st.button` block.
+    # st.button is True only on the single rerun right after the click, so
+    # rendering the table there means the async st.dataframe grid gets torn down
+    # by the next rerun (e.g. the download button) before it paints — that was
+    # the blank-table-on-HF bug. Rendering from session_state paints on every
+    # stable rerun, matching the lexicon demo (which works on HF). It also makes
+    # the download button non-destructive: the table survives the rerun.
+    if "parse_df" in st.session_state:
+        df = st.session_state["parse_df"]
         sent_count = df["sent_id"].nunique()
-        st.text(f"Analyzed {len(df)} tokens in {sent_count} sentences with {model_name} model.")
-        # Use use_container_width instead of a fixed width=1200: the fixed
-        # pixel width made st.dataframe render blank behind HF Spaces' proxy
-        # (the summary line showed but the grid never painted). The lexicon
-        # demo already renders fine this way. Column widths tuned so the wide
-        # feats/lemma columns get room and the numeric columns stay narrow.
+        st.text(
+            f"Analyzed {len(df)} tokens in {sent_count} sentences with {model_name} model."
+        )
         st.dataframe(
             df,
             use_container_width=True,
@@ -112,21 +119,11 @@ with tab1:
             },
         )
 
-        @st.cache_data
-        def convert_df(df):
-            return df.to_csv(index=False, sep="\t").encode("utf-8")
-
-        csv = convert_df(df)
-
-        def create_timestamp():
-            return datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-
-        # nb: clicking this button resets app! Open streamlit issue, as of 4.15.2023; cf. https://github.com/streamlit/streamlit/issues/4382
-        st.markdown("*NB: Clicking the download button will reset the app after download!*")
+        csv = df.to_csv(index=False, sep="\t").encode("utf-8")
         st.download_button(
             "Press to Download",
             csv,
-            f"latincy-analysis-{create_timestamp()}.tsv",
+            f"latincy-analysis-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.tsv",
             "text/csv",
             key="download-csv",
         )
