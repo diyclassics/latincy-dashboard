@@ -89,7 +89,11 @@ with tab1:
         df = analyze_text(text)
         sent_count = df["sent_id"].nunique()
         st.text(f"Analyzed {len(df)} tokens in {sent_count} sentences with {model_name} model.")
-        st.dataframe(df, width=1200, hide_index=True)
+        # Static HTML table (st.table) instead of the interactive st.dataframe:
+        # the dataframe's JS grid silently fails to paint behind HF Spaces'
+        # proxy (renders blank after the summary line), while a plain HTML
+        # table always renders. Index hidden for a clean CoNLL-U-style view.
+        st.table(df.style.hide(axis="index"))
 
         @st.cache_data
         def convert_df(df):
