@@ -1,8 +1,8 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 altair<5
-la-core-web-lg @ https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-3.9.5-py3-none-any.whl
-la-core-web-md @ https://huggingface.co/latincy/la_core_web_md/resolve/main/la_core_web_md-3.9.5-py3-none-any.whl
-la-core-web-sm @ https://huggingface.co/latincy/la_core_web_sm/resolve/main/la_core_web_sm-3.9.5-py3-none-any.whl
+la-core-web-lg @ https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-3.9.6-py3-none-any.whl
+la-core-web-md @ https://huggingface.co/latincy/la_core_web_md/resolve/main/la_core_web_md-3.9.6-py3-none-any.whl
+la-core-web-sm @ https://huggingface.co/latincy/la_core_web_sm/resolve/main/la_core_web_sm-3.9.6-py3-none-any.whl
 pandas==2.3.0
 spacy==3.8.11
 la-latincy-lookups>=1.0.0
