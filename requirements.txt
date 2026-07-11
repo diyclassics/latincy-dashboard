@@ -10,5 +10,6 @@ spacy-streamlit==1.0.6
 latincy-diacritics @ https://huggingface.co/latincy/latincy-diacritics/resolve/main/latincy_diacritics-0.1.0-py3-none-any.whl
 latincy-preprocess>=0.2.0
 latincy-lexicon>=0.5.0
+latincy-vocab>=0.1.0
 streamlit==1.45.1
 watchdog==6.0.0
