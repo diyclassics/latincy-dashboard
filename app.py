@@ -1,16 +1,9 @@
 import streamlit as st
 
-from model_helpers import start_preload
-
 st.set_page_config(
     page_title="LatinCy Dashboard | Home",
     page_icon="🏠",
 )
-
-# Warm the default lg model in a background thread while the visitor reads this
-# page, so the first demo they open finds it already loaded. Non-blocking and
-# idempotent — safe to call on every render.
-start_preload()
 
 st.write("# LatinCy Dashboard")
 
