@@ -7,14 +7,15 @@ from model_helpers import load_model
 st.set_page_config(page_title="Parsing Demo", layout="wide")
 st.sidebar.header("Parsing Demo")
 
-# Sample passages, offered as bubbles (st.pills) below the text box. The first
-# five are the latincy-pipelines smoke-test sentences (scripts/preflight.py);
-# the Cicero opening rounds out the set with a canonical example.
+# Sample passages, offered as bubbles (st.pills) below the text box. Drawn from
+# the latincy-pipelines smoke tests (scripts/preflight.py), but given as
+# COMPLETE sentences — where the smoke test used only an incipit (the Aeneid
+# opening), it is extended to the full first sentence, since the models parse
+# whole sentences more reliably than fragments. Cicero rounds out the set.
 SAMPLE_PASSAGES = {
     "Seneca, Ep. 1.1": "Ita fac, mi Lucili; vindica te tibi, et tempus quod adhuc aut auferebatur aut subripiebatur aut excidebat collige et serva.",
-    "Vergil, Aen. 1.1": "Arma virumque cano, Troiae qui primus ab oris",
+    "Vergil, Aen. 1.1": "Arma virumque cano, Troiae qui primus ab oris Italiam fato profugus Laviniaque venit litora, multum ille et terris iactatus et alto vi superum saevae memorem Iunonis ob iram, multa quoque et bello passus, dum conderet urbem inferretque deos Latio, genus unde Latinum Albanique patres atque altae moenia Romae.",
     "Caesar, B.G. 1.1": "Gallia est omnis divisa in partes tres, quarum unam incolunt Belgae, aliam Aquitani, tertiam qui ipsorum lingua Celtae, nostra Galli appellantur.",
-    "Caesar, B.G. 1.2": "Is M. Messala, M. Pisone consulibus, coniurationem nobilitatis fecit.",
     "Ritchie, Fab. 1": "Olim in Graecia puer erat, qui Hercules appellabatur.",
     "Cicero, Cat. 1.1": "Quo usque tandem abutere, Catilina, patientia nostra? quam diu etiam furor iste tuus nos eludet? quem ad finem sese effrenata iactabit audacia?",
 }
