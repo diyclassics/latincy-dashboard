@@ -1,5 +1,3 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-
 # LatinCy model — lg only (v3.9.6). The dashboard shares a single lg instance
 # across all demos; md/sm were dropped to cut image size and RAM.
 la-core-web-lg @ https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-3.9.6-py3-none-any.whl
@@ -32,7 +30,6 @@ spacy-loggers==1.0.5
 latincy-preprocess==0.3.2
 la-latincy-lookups==1.0.0
 latincy-lexicon==0.5.0
-latincy-diacritics @ https://huggingface.co/latincy/latincy-diacritics/resolve/main/latincy_diacritics-0.1.0-py3-none-any.whl
 
 # latincy-vocab intentionally omitted: the only PyPI release (0.1.0) predates
 # the vocab demo and lacks vocabbuilder.data.gloss_provider, so pages/14 cannot

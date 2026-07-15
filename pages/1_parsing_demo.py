@@ -7,7 +7,18 @@ from model_helpers import load_model
 st.set_page_config(page_title="Parsing Demo", layout="wide")
 st.sidebar.header("Parsing Demo")
 
-default_text = """Ita fac, mi Lucili; vindica te tibi, et tempus, quod adhuc aut auferebatur aut subripiebatur aut excidebat, collige et serva."""
+# Sample passages, offered as bubbles (st.pills) below the text box. The first
+# five are the latincy-pipelines smoke-test sentences (scripts/preflight.py);
+# the Cicero opening rounds out the set with a canonical example.
+SAMPLE_PASSAGES = {
+    "Seneca, Ep. 1.1": "Ita fac, mi Lucili; vindica te tibi, et tempus quod adhuc aut auferebatur aut subripiebatur aut excidebat collige et serva.",
+    "Vergil, Aen. 1.1": "Arma virumque cano, Troiae qui primus ab oris",
+    "Caesar, B.G. 1.1": "Gallia est omnis divisa in partes tres, quarum unam incolunt Belgae, aliam Aquitani, tertiam qui ipsorum lingua Celtae, nostra Galli appellantur.",
+    "Caesar, B.G. 1.2": "Is M. Messala, M. Pisone consulibus, coniurationem nobilitatis fecit.",
+    "Ritchie, Fab. 1": "Olim in Graecia puer erat, qui Hercules appellabatur.",
+    "Cicero, Cat. 1.1": "Quo usque tandem abutere, Catilina, patientia nostra? quam diu etiam furor iste tuus nos eludet? quem ad finem sese effrenata iactabit audacia?",
+}
+default_text = SAMPLE_PASSAGES["Seneca, Ep. 1.1"]
 
 
 def format_morph(morph):
@@ -82,8 +93,26 @@ df = None
 tab1, tab2 = st.tabs(["Analyze", "About"])
 
 with tab1:
+    # The text area is keyed on session_state so the sample-passage bubbles can
+    # populate it: a pill's on_change callback sets the value, which the text
+    # area picks up on the following rerun.
+    if "parse_input" not in st.session_state:
+        st.session_state["parse_input"] = default_text
+
+    def load_sample():
+        picked = st.session_state.get("sample_pick")
+        if picked:
+            st.session_state["parse_input"] = SAMPLE_PASSAGES[picked]
+
     text = st.text_area(
-        "Enter some text to analyze (max 500 tokens)", value=default_text, height=200
+        "Enter some text to analyze (max 500 tokens)", key="parse_input", height=200
+    )
+    st.pills(
+        "Or load a sample passage:",
+        list(SAMPLE_PASSAGES),
+        selection_mode="single",
+        key="sample_pick",
+        on_change=load_sample,
     )
     if st.button("Analyze"):
         st.session_state["parse_df"] = analyze_text(text)
