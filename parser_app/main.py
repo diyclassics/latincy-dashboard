@@ -8,7 +8,6 @@ stable on the host.
 """
 
 import html
-import json
 import threading
 from contextlib import asynccontextmanager
 
@@ -87,8 +86,8 @@ def _results_html(rows):
 
 def render(text: str, rows=None):
     buttons = "".join(
-        f'<button type="button" class="pill" onclick="setText({json.dumps(k)})">{html.escape(k)}</button>'
-        for k in SAMPLE_PASSAGES
+        f'<button type="button" class="pill" data-text="{html.escape(v)}">{html.escape(k)}</button>'
+        for k, v in SAMPLE_PASSAGES.items()
     )
     return f"""<!doctype html>
 <html lang="en"><head>
@@ -146,8 +145,12 @@ def render(text: str, rows=None):
     Written by <a href="https://github.com/diyclassics">P.&nbsp;J.&nbsp;Burns</a> + Claude Opus&nbsp;4.8.
   </small></footer>
   <script>
-    const SAMPLES = {json.dumps(SAMPLE_PASSAGES)};
-    function setText(k) {{ document.getElementById('text').value = SAMPLES[k]; }}
+    document.querySelectorAll('.pill').forEach(function (b) {{
+      b.addEventListener('click', function () {{
+        document.getElementById('text').value = b.getAttribute('data-text');
+        document.getElementById('text').focus();
+      }});
+    }});
   </script>
 </body></html>"""
 
