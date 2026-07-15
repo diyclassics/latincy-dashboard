@@ -1,0 +1,7 @@
+# Reuse the exact pinned model/spaCy stack from the dashboard, plus a tiny web
+# layer. Plain FastAPI + uvicorn (the pattern already used by the droplet's
+# other services) — no Streamlit runtime, which is where the SIGSEGV lived.
+-r ../requirements.txt
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
