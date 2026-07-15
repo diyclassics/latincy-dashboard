@@ -101,19 +101,22 @@ with tab1:
         st.text(
             f"Analyzed {len(df)} tokens in {sent_count} sentences with {model_name} model."
         )
+        # Display an all-string copy with all-TextColumn config, matching the
+        # lexicon demo's dataframe exactly (which renders fine on HF). The
+        # original df (with int token_id/head) still feeds the TSV download.
         st.dataframe(
-            df,
+            df.astype(str),
             use_container_width=True,
             hide_index=True,
             column_config={
                 "sent_id": st.column_config.TextColumn(width="small"),
-                "token_id": st.column_config.NumberColumn(width="small"),
+                "token_id": st.column_config.TextColumn(width="small"),
                 "form": st.column_config.TextColumn(width="small"),
                 "lemma": st.column_config.TextColumn(width="small"),
                 "upos": st.column_config.TextColumn(width="small"),
                 "xpos": st.column_config.TextColumn(width="small"),
                 "feats": st.column_config.TextColumn(width="large"),
-                "head": st.column_config.NumberColumn(width="small"),
+                "head": st.column_config.TextColumn(width="small"),
                 "deprel": st.column_config.TextColumn(width="small"),
                 "ent_type": st.column_config.TextColumn(width="small"),
             },
