@@ -45,8 +45,9 @@ SAMPLE_PASSAGES = {
     "Cicero, Cat. 1.1": "Quo usque tandem abutere, Catilina, patientia nostra? quam diu etiam furor iste tuus nos eludet? quem ad finem sese effrenata iactabit audacia?",
 }
 DEFAULT_TEXT = SAMPLE_PASSAGES["Seneca, Ep. 1.1"]
-# A longer u-only passage (Aeneid 1.1-11) so the U/V demo shows many corrections.
-UV_DEFAULT = "Arma uirumque cano, Troiae qui primus ab oris Italiam fato profugus Lauiniaque uenit litora, multum ille et terris iactatus et alto ui superum saeuae memorem Iunonis ob iram. Musa, mihi causas memora, quo numine laeso quidue dolens regina deum tot uoluere casus insignem pietate uirum, tot adire labores impulerit."
+# The U/V demo strips ANY input to u-only, then restores v — so a normal v-form
+# passage (Aeneid 1.1-11) works as the default and as its own gold reference.
+UV_DEFAULT = "Arma virumque cano, Troiae qui primus ab oris Italiam fato profugus Laviniaque venit litora, multum ille et terris iactatus et alto vi superum saevae memorem Iunonis ob iram. Musa, mihi causas memora, quo numine laeso quidve dolens regina deum tot volvere casus insignem pietate virum, tot adire labores impulerit."
 COLUMNS = ["sent_id", "token_id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "ent_type"]
 
 # (path, label) — order = left-nav order; first entry is the landing page.
@@ -310,49 +311,39 @@ def _diff_html(a, b):
     return "".join(out)
 
 
-def uv_result(text, mode):
-    if mode == "test":
-        # Remove: strip the gold reference to u-only. Test: restore + score.
-        source = text.replace("v", "u").replace("V", "U")
-        restored = _uv.normalize(source)
-        needed = sum(1 for a, b in zip(text, source) if a != b)
-        out, correct = [], 0
-        for i, ch in enumerate(restored):
-            e = html.escape(ch)
-            if i < len(source) and ch != source[i]:      # normalizer restored this char
-                if i < len(text) and ch == text[i]:
-                    correct += 1
-                    out.append(f"<ins>{e}</ins>")        # restored correctly
-                else:
-                    out.append(f"<del>{e}</del>")         # restored wrongly
+def uv_result(text):
+    # Strip ANY input to u-only (as in manuscript spelling), restore v, and score
+    # the restoration against the input — so it works no matter how the text is
+    # spelled, which removes the "input must be u-only" confusion.
+    source = text.replace("v", "u").replace("V", "U")
+    restored = _uv.normalize(source)
+    needed = sum(1 for a, b in zip(text, source) if a != b)   # consonantal u's in the input
+    out, correct = [], 0
+    for i, ch in enumerate(restored):
+        e = html.escape(ch)
+        if i < len(source) and ch != source[i]:               # normalizer restored a v here
+            if i < len(text) and ch == text[i]:
+                correct += 1
+                out.append(f"<ins>{e}</ins>")                 # matches the input
             else:
-                out.append(e)
-        if not needed:
-            return ('<p class="summary">No v-spelling in the reference to test — paste text with '
-                    'correct <code>v</code> (or pick a sample passage) as the reference.</p>')
-        acc = round(correct / needed * 100, 1)
-        return (f'<p class="summary">Stripped {needed} char(s) to u-only, then restored '
-                f'{acc}% correctly ({correct}/{needed}) vs the reference.</p>'
-                f'<p class="uonly">u-only &rarr; <code>{html.escape(source)}</code></p>'
-                f'<div class="textout">{"".join(out)}</div>')
-    normalized = _uv.normalize(text)
-    changed = sum(1 for a, b in zip(text, normalized) if a != b)
-    return (f'<p class="summary">{changed} character(s) restored (u &rarr; v).</p>'
-            f'<div class="textout">{_diff_html(text, normalized)}</div>')
+                out.append(f"<del>{e}</del>")                 # differs from the input
+        else:
+            out.append(e)
+    if needed:
+        score = f"restored {round(correct / needed * 100, 1)}% of {needed} v-spelling(s) to match your input"
+    else:
+        score = "your input had no consonantal u to restore"
+    return (f'<p class="summary">Stripped to u-only, then {score}.</p>'
+            f'<p class="uonly">u-only form &rarr; <code>{html.escape(source)}</code></p>'
+            f'<div class="textout">{"".join(out)}</div>')
 
 
-def uv_form(text, mode):
-    def chk(m):
-        return " checked" if m == mode else ""
+def uv_form(text):
     return f"""
     <form method="post" action="/uv">
       <textarea name="text" id="text" rows="4" aria-label="Latin text">{html.escape(text)}</textarea>
       {_samples_pills()}
-      <fieldset class="modes">
-        <label><input type="radio" name="mode" value="correct"{chk("correct")}> Correct — restore v in u-only text</label>
-        <label><input type="radio" name="mode" value="test"{chk("test")}> Remove &amp; test — strip this reference to u-only, restore, and score</label>
-      </fieldset>
-      <button class="go" type="submit">Run</button>
+      <button class="go" type="submit">Strip &amp; restore</button>
     </form>"""
 
 
@@ -420,21 +411,21 @@ def cl_post(text: str = Form("")):
     return layout("/custom-label", "Highlight tokens in the DCC Core Latin Vocabulary.", input_form("/custom-label", text) + customlabel_result(text))
 
 
-UV_INTRO = ('Rule-based U/V spelling. <b>Correct</b> restores consonantal '
-            '<code>u</code>&nbsp;&rarr;&nbsp;<code>v</code>; <b>Remove &amp; test</b> strips a '
-            'correct reference to u-only, restores it, and scores the result.')
+UV_INTRO = ('Rule-based U/V spelling (<code>latincy-preprocess</code>). Whatever you enter is first '
+            'stripped to u-only — as in many manuscripts and early printings — then the normalizer '
+            'restores consonantal <code>u</code>&nbsp;&rarr;&nbsp;<code>v</code>, scored against your '
+            'input (<ins>match</ins> / <del>miss</del>).')
 
 
 @app.get("/uv", response_class=HTMLResponse)
 def uv_get():
-    return layout("/uv", UV_INTRO, uv_form(UV_DEFAULT, "correct"))
+    return layout("/uv", UV_INTRO, uv_form(UV_DEFAULT))
 
 
 @app.post("/uv", response_class=HTMLResponse)
-def uv_post(text: str = Form(""), mode: str = Form("correct")):
+def uv_post(text: str = Form("")):
     text = _clean(text) or UV_DEFAULT
-    mode = mode if mode in ("correct", "test") else "correct"
-    return layout("/uv", UV_INTRO, uv_form(text, mode) + uv_result(text, mode))
+    return layout("/uv", UV_INTRO, uv_form(text) + uv_result(text))
 
 
 @app.get("/healthz")
