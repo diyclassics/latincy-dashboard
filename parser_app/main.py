@@ -189,6 +189,8 @@ def layout(active, intro, body):
   table.metrics {{ border-collapse:collapse; margin:.6rem 0; font-size:.9rem; }}
   table.metrics th, table.metrics td {{ text-align:left; padding:.3rem 1.2rem .3rem 0; border-bottom:1px solid #eee; }}
   details.tsv {{ margin-top:.8rem; }} details.tsv textarea {{ width:100%; font-family:ui-monospace,monospace; font-size:.75rem; }}
+  .clear {{ display:inline-block; margin-left:.9rem; font:inherit; font-size:.88rem; color:#555; border:1px solid #aaa; border-radius:4px; padding:.15rem .7rem; text-decoration:none; vertical-align:middle; }}
+  .clear:hover {{ border-color:var(--accent); color:var(--accent); }}
   code {{ background:#f0f1f3; padding:.05rem .35rem; border-radius:4px; }}
   footer {{ margin-top:3rem; color:#666; border-top:1px solid #eee; padding-top:1rem; font-size:.9rem; }}
   footer a {{ color:var(--accent); }}
@@ -248,7 +250,8 @@ def parser_result(text):
     body = "".join("<tr>" + "".join(f"<td>{html.escape(str(v))}</td>" for v in r) + "</tr>" for r in rows)
     tsv = "\t".join(COLUMNS) + "\n" + "\n".join("\t".join(str(v) for v in r) for r in rows)
     n_sents = len({r[0] for r in rows})
-    return (f'<p class="summary">Analyzed {len(rows)} tokens in {n_sents} sentence(s).</p>'
+    return (f'<p class="summary">Analyzed {len(rows)} tokens in {n_sents} sentence(s).'
+            f'<a href="/" class="clear">Clear</a></p>'
             f'<div class="tablewrap"><table class="parse"><thead><tr>{thead}</tr></thead><tbody>{body}</tbody></table></div>'
             f'<details class="tsv"><summary>Copy as TSV (CoNLL-U order)</summary>'
             f'<textarea readonly rows="6">{html.escape(tsv)}</textarea></details>')
