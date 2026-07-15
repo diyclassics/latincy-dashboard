@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 
 import spacy
 from spacy import displacy
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse
 
 from dcc_helpers import DCC_CORE_LEMMAS
@@ -120,7 +120,7 @@ def _samples_pills():
 def input_form(action, text, *, samples=True, label="Enter Latin text", button="Analyze", rows=6):
     pills = _samples_pills() if samples else ""
     return f"""
-    <form method="post" action="{action}">
+    <form method="get" action="{action}">
       <textarea name="text" id="text" rows="{rows}" aria-label="{html.escape(label)}">{html.escape(text)}</textarea>
       {pills}
       <button class="go" type="submit">{html.escape(button)}</button>
@@ -343,7 +343,7 @@ def uv_result(text):
 
 def uv_form(text):
     return f"""
-    <form method="post" action="/uv">
+    <form method="get" action="/uv">
       <textarea name="text" id="text" rows="4" aria-label="Latin text">{html.escape(text)}</textarea>
       {_samples_pills()}
       <button class="go" type="submit">Strip &amp; restore</button>
@@ -358,58 +358,43 @@ def _clean(text):
 
 
 @app.get("/", response_class=HTMLResponse)
-def parser_get():
-    return layout("/", f"Universal Dependencies parse from <code>{MODEL}</code>. Enter Latin text (max {MAX_TOKENS} tokens) or pick a sample.",
-                  input_form("/", DEFAULT_TEXT))
-
-
-@app.post("/", response_class=HTMLResponse)
-def parser_post(text: str = Form("")):
+def parser(text: str = Query(None)):
+    if text is None:
+        return layout("/", f"Universal Dependencies parse from <code>{MODEL}</code>. Enter Latin text (max {MAX_TOKENS} tokens) or pick a sample.",
+                      input_form("/", DEFAULT_TEXT))
     text = _clean(text) or DEFAULT_TEXT
     return layout("/", f"Universal Dependencies parse from <code>{MODEL}</code>.",
                   input_form("/", text) + parser_result(text))
 
 
 @app.get("/senter", response_class=HTMLResponse)
-def senter_get():
-    return layout("/senter", "Split a passage into sentences.", input_form("/senter", DEFAULT_TEXT, button="Segment"))
-
-
-@app.post("/senter", response_class=HTMLResponse)
-def senter_post(text: str = Form("")):
+def senter(text: str = Query(None)):
+    if text is None:
+        return layout("/senter", "Split a passage into sentences.", input_form("/senter", DEFAULT_TEXT, button="Segment"))
     text = _clean(text) or DEFAULT_TEXT
     return layout("/senter", "Split a passage into sentences.", input_form("/senter", text, button="Segment") + senter_result(text))
 
 
 @app.get("/ner", response_class=HTMLResponse)
-def ner_get():
-    return layout("/ner", "Highlight named entities — people, places, and groups (PER, LOC, NORP).", input_form("/ner", DEFAULT_TEXT))
-
-
-@app.post("/ner", response_class=HTMLResponse)
-def ner_post(text: str = Form("")):
+def ner(text: str = Query(None)):
+    if text is None:
+        return layout("/ner", "Highlight named entities — people, places, and groups (PER, LOC, NORP).", input_form("/ner", DEFAULT_TEXT))
     text = _clean(text) or DEFAULT_TEXT
     return layout("/ner", "Highlight named entities.", input_form("/ner", text) + ner_result(text))
 
 
 @app.get("/dependency", response_class=HTMLResponse)
-def dep_get():
-    return layout("/dependency", "Visualize dependency parse trees.", input_form("/dependency", DEFAULT_TEXT))
-
-
-@app.post("/dependency", response_class=HTMLResponse)
-def dep_post(text: str = Form("")):
+def dep(text: str = Query(None)):
+    if text is None:
+        return layout("/dependency", "Visualize dependency parse trees.", input_form("/dependency", DEFAULT_TEXT))
     text = _clean(text) or DEFAULT_TEXT
     return layout("/dependency", "Visualize dependency parse trees.", input_form("/dependency", text) + dep_result(text))
 
 
 @app.get("/custom-label", response_class=HTMLResponse)
-def cl_get():
-    return layout("/custom-label", "Highlight tokens in the DCC Core Latin Vocabulary.", input_form("/custom-label", DEFAULT_TEXT))
-
-
-@app.post("/custom-label", response_class=HTMLResponse)
-def cl_post(text: str = Form("")):
+def cl(text: str = Query(None)):
+    if text is None:
+        return layout("/custom-label", "Highlight tokens in the DCC Core Latin Vocabulary.", input_form("/custom-label", DEFAULT_TEXT))
     text = _clean(text) or DEFAULT_TEXT
     return layout("/custom-label", "Highlight tokens in the DCC Core Latin Vocabulary.", input_form("/custom-label", text) + customlabel_result(text))
 
@@ -421,12 +406,9 @@ UV_INTRO = ('Rule-based U/V spelling (<code>latincy-preprocess</code>). Whatever
 
 
 @app.get("/uv", response_class=HTMLResponse)
-def uv_get():
-    return layout("/uv", UV_INTRO, uv_form(UV_DEFAULT))
-
-
-@app.post("/uv", response_class=HTMLResponse)
-def uv_post(text: str = Form("")):
+def uv(text: str = Query(None)):
+    if text is None:
+        return layout("/uv", UV_INTRO, uv_form(UV_DEFAULT))
     text = _clean(text) or UV_DEFAULT
     return layout("/uv", UV_INTRO, uv_form(text) + uv_result(text))
 
