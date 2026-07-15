@@ -19,12 +19,7 @@ and groups — using LatinCy's NER component.
 """
 )
 
-model_selectbox = st.sidebar.selectbox(
-    "Choose model:", ("la_core_web_lg", "la_core_web_md", "la_core_web_sm")
-)
-
-
-nlp = load_model(model_selectbox)
+nlp = load_model("la_core_web_lg")
 
 tab1, tab2 = st.tabs(["Recognize", "About"])
 
@@ -74,18 +69,17 @@ with tab2:
 
     ### Model Performance
 
-    NER F1 scores by pipeline size:
+    NER F1 for the deployed model, with the transformer pipeline shown for
+    reference:
 
     | Pipeline | NER F1 |
     |----------|--------|
-    | **la_core_web_sm** | 80.4% |
-    | **la_core_web_md** | 82.2% |
-    | **la_core_web_lg** | 82.6% |
-    | **la_core_web_trf** | 84.8% |
+    | **la_core_web_lg** (deployed) | 82.6% |
+    | la_core_web_trf (reference) | 84.8% |
 
-    Larger pipelines benefit from richer word vectors (md, lg) or a
-    transformer encoder (trf), which improve the model's ability to
-    disambiguate entities from common nouns and adjectives.
+    The transformer pipeline (`trf`) scores higher but needs a GPU or far more
+    compute; `lg` gives near-transformer accuracy on CPU, which is why the
+    dashboard ships it.
 
     ### Source
 

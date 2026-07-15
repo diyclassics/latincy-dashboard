@@ -13,7 +13,7 @@ python_version: "3.12"
 
 # LatinCy Dashboard
 
-Streamlit dashboard for exploring features of the [LatinCy](https://huggingface.co/latincy) models (la_core_web_lg, la_core_web_md, la_core_web_sm v3.9.6).
+Streamlit dashboard for exploring features of the [LatinCy](https://huggingface.co/latincy) `la_core_web_lg` model (v3.9.6). A single shared model instance backs every demo.
 
 View dashboard [here](https://latincy.streamlit.app/)
 

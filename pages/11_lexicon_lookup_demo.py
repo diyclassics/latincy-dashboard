@@ -1,7 +1,8 @@
 import pandas as pd
 import streamlit as st
 
-from lexicon_helpers import load_lexicon_pipeline, sentence_picker
+from lexicon_helpers import annotate_lexicon, sentence_picker
+from model_helpers import load_model
 
 st.set_page_config(page_title="Lexicon Lookup Demo", layout="wide")
 st.sidebar.header("Lexicon Lookup Demo")
@@ -22,12 +23,10 @@ st.info(
     "sentence for best results."
 )
 
-model_name = st.sidebar.selectbox(
-    "Choose model:",
-    ("la_core_web_lg", "la_core_web_md", "la_core_web_sm"),
-)
-
-nlp = load_lexicon_pipeline(model_name)
+# Shared read-only lg model; Whitaker's Words annotations are applied to each
+# doc post-hoc via annotate_lexicon (weightless blank pipeline), so this demo
+# reuses the single lg instance instead of loading its own copy.
+nlp = load_model("la_core_web_lg")
 
 tab1, tab2 = st.tabs(["Lookup", "About"])
 
@@ -35,7 +34,7 @@ with tab1:
     text = sentence_picker("lookup")
 
     if st.button("Analyze", key="lookup_analyze"):
-        doc = nlp(text)
+        doc = annotate_lexicon(nlp(text))
         rows = []
         lex_data = []
         for token in doc:

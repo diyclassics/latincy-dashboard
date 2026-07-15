@@ -26,14 +26,9 @@ how words relate to each other grammatically.
 """
 )
 
-model_selectbox = st.sidebar.selectbox(
-    "Choose model:", ("la_core_web_lg", "la_core_web_md", "la_core_web_sm")
-)
-
 compact = st.sidebar.checkbox("Compact mode", value=False)
 
-
-nlp = load_model(model_selectbox)
+nlp = load_model("la_core_web_lg")
 
 tab1, tab2 = st.tabs(["Parse", "About"])
 

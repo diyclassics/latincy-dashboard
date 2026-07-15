@@ -1,10 +1,8 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# LatinCy models — all v3.9.6 (the 3.9.5 lg wheel was deleted from HF; 3.9.6
-# wheels exist for all three).
+# LatinCy model — lg only (v3.9.6). The dashboard shares a single lg instance
+# across all demos; md/sm were dropped to cut image size and RAM.
 la-core-web-lg @ https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-3.9.6-py3-none-any.whl
-la-core-web-md @ https://huggingface.co/latincy/la_core_web_md/resolve/main/la_core_web_md-3.9.6-py3-none-any.whl
-la-core-web-sm @ https://huggingface.co/latincy/la_core_web_sm/resolve/main/la_core_web_sm-3.9.6-py3-none-any.whl
 
 # --- Pinned spaCy + native stack (matches the known-good local venv). ---
 # Previously these were unpinned, so fresh cloud builds drifted to newer wheels

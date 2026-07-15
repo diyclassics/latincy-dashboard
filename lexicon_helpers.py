@@ -1,4 +1,4 @@
-"""Shared helpers for latincy-lexicon demo pages (11, 12, 13)."""
+"""Shared helpers for the latincy-lexicon demo (page 11)."""
 
 from __future__ import annotations
 
@@ -33,20 +33,22 @@ def build_lexicon_artifacts() -> tuple[Path, Path]:
     return lexicon_path, analyzer_path
 
 
-@st.cache_resource(show_spinner="Loading LatinCy pipeline…")
-def load_lexicon_pipeline(model_name: str):
-    """Load a LatinCy model with whitakers_words + paradigm_generator attached.
+@st.cache_resource(show_spinner="Loading Whitaker's Words components (first load only)…")
+def load_lexicon_components():
+    """A weightless ``spacy.blank("la")`` carrying whitakers_words + paradigm_generator.
 
-    Cached per model_name — all three lexicon demo pages share the same
-    pipeline instance, so switching pages is instant after the first
-    load.
+    The heavy ``lg`` model is loaded once via ``model_helpers.load_model`` and
+    shared across the whole dashboard. These two components are stateless — they
+    only read ``token.text``/``lemma_``/``pos_`` and set token extensions — so
+    they can be applied to the shared model's docs post-hoc (see
+    ``annotate_lexicon``) instead of loading a second full model just to hold
+    them. The blank pipeline carries no weights, so this is ~KB, not ~650 MB.
     """
     import spacy
 
-    nlp = spacy.load(model_name)
     lexicon_path, analyzer_path = build_lexicon_artifacts()
-
-    nlp.add_pipe(
+    blank = spacy.blank("la")
+    blank.add_pipe(
         "whitakers_words",
         config={
             "lexicon_path": str(lexicon_path),
@@ -54,12 +56,25 @@ def load_lexicon_pipeline(model_name: str):
         },
         last=True,
     )
-    nlp.add_pipe(
+    blank.add_pipe(
         "paradigm_generator",
         config={"analyzer_path": str(analyzer_path)},
         last=True,
     )
-    return nlp
+    return blank
+
+
+def annotate_lexicon(doc):
+    """Enrich a doc from the shared lg model with Whitaker's Words data in place.
+
+    Applies whitakers_words + paradigm_generator so ``token._.lexicon`` /
+    ``._.gloss`` / ``._.ww`` / ``._.paradigm`` are populated — no second model
+    load. Returns the same doc.
+    """
+    blank = load_lexicon_components()
+    for name in ("whitakers_words", "paradigm_generator"):
+        doc = blank.get_pipe(name)(doc)
+    return doc
 
 
 def sentence_picker(key: str) -> str:

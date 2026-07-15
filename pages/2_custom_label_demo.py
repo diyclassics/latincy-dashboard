@@ -1,18 +1,14 @@
-import spacy
-from spacy.language import Language
 from spacy.matcher import Matcher
 from spacy.tokens import Token, Span
 import streamlit as st
 from spacy_streamlit import visualize_spans
 
+from model_helpers import load_model
+
 st.set_page_config(page_title='Custom Label Demo', layout="wide")
 st.sidebar.header("Custom Label Demo")
 
 default_text = """Ita fac, mi Lucili; vindica te tibi, et tempus, quod adhuc aut auferebatur aut subripiebatur aut excidebat, collige et serva."""
-
-@Language.factory("dcc_core")
-def create_dcc_core_merger(nlp, name):
-    return DCCCoreMerger(nlp.vocab)
 
 class DCCCoreMerger:
     def __init__(self, vocab):
@@ -40,25 +36,22 @@ class DCCCoreMerger:
 
 st.title("LatinCy DCC Core Visualizer")
 
-# Using object notation
-model_selectbox = st.sidebar.selectbox(
-    "Choose model:",
-    ("la_core_web_lg", "la_core_web_md", "la_core_web_sm")
-)
+# Reuse the shared, read-only lg model and apply the DCC matcher to each doc
+# post-hoc (not as an added pipe). This shares the single lg instance with the
+# rest of the dashboard instead of loading a second ~650 MB copy just to hold a
+# lemma matcher — and it can't leak dcc_core into the other demos.
+model_name = "la_core_web_lg"
+nlp = load_model(model_name)
 
-# This demo mutates its pipeline (adds the dcc_core component), so it caches
-# its OWN instance rather than sharing the read-only model from model_helpers —
-# mutating a shared model would leak dcc_core into the other demos. The guard
-# keeps add_pipe idempotent across Streamlit reruns of the cached instance.
+
 @st.cache_resource
-def load_dcc_model(model_name):
-    nlp = spacy.load(model_name)
-    if "dcc_core" not in nlp.pipe_names:
-        nlp.add_pipe("dcc_core", last=True)
-    return nlp
+def get_dcc_merger(_vocab):
+    # _vocab is unhashable, so the leading underscore tells Streamlit not to
+    # hash it; the matcher is built once on the shared model's vocab.
+    return DCCCoreMerger(_vocab)
 
 
-nlp = load_dcc_model(model_selectbox)
+dcc_merger = get_dcc_merger(nlp.vocab)
 
 tab1, tab2 = st.tabs(["Analyze", "About"])
 
@@ -69,6 +62,7 @@ with tab1:
     if st.button("Analyze"):
         text = " ".join(text.split()[:100])
         doc = nlp(text.replace("v", "u").replace("V", "U").lower())
+        dcc_merger(doc)  # populate doc.spans["dcc_core"] + token._.is_dcc_core
         len_doc = len([token for token in doc if not token.is_punct])
         len_dcc = len(doc.spans["dcc_core"])
         st.text(f"Analyzed {len_doc} tokens with {len_dcc} core vocabulary items ({round((len_dcc/len_doc)*100, 2)}%) ")
