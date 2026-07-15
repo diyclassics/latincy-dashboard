@@ -19,7 +19,22 @@ from fastapi.responses import HTMLResponse
 from dcc_helpers import DCC_CORE_LEMMAS
 
 MODEL = "la_core_web_lg"
+MODEL_VERSION = "?"  # set from the model's meta at startup
+HF_URL = "https://huggingface.co/latincy/la_core_web_lg"
 MAX_TOKENS = 500
+
+# Routes that use the lg model (so we show its attribution + metrics there).
+MODEL_ROUTES = {"/", "/senter", "/ner", "/dependency", "/custom-label"}
+METRIC_LABELS = [
+    ("pos_acc", "POS (UPOS)"),
+    ("tag_acc", "Tag (XPOS)"),
+    ("morph_acc", "Morphology"),
+    ("lemma_acc", "Lemma"),
+    ("dep_uas", "Dependency UAS"),
+    ("dep_las", "Dependency LAS"),
+    ("sents_f", "Sentence segmentation (F1)"),
+    ("ents_f", "NER (F1)"),
+]
 
 # Each sample is >= 3 sentences (the demos are more useful multi-sentence).
 SAMPLE_PASSAGES = {
@@ -51,13 +66,30 @@ _uv = None
 
 @asynccontextmanager
 async def lifespan(app):
-    global _nlp, _uv
+    global _nlp, _uv, MODEL_VERSION
     _nlp = spacy.load(MODEL)
     if "trf_vectors" in _nlp.pipe_names:
         _nlp.disable_pipe("trf_vectors")
+    MODEL_VERSION = _nlp.meta.get("version", "?")
     from latincy_preprocess.uv import UVNormalizerRules
     _uv = UVNormalizerRules()
     yield
+
+
+def metrics_html():
+    """Collapsible model-evaluation metrics, pulled from the model's meta.json."""
+    perf = (_nlp.meta or {}).get("performance", {})
+    rows = "".join(
+        f"<tr><td>{html.escape(label)}</td><td>{perf[key] * 100:.2f}%</td></tr>"
+        for key, label in METRIC_LABELS if isinstance(perf.get(key), (int, float))
+    )
+    if not rows:
+        return ""
+    return (f'<details class="metrics"><summary>{MODEL} v{MODEL_VERSION} — evaluation metrics</summary>'
+            f'<table class="metrics"><thead><tr><th>Component</th><th>Score</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table>'
+            f'<p class="uonly">From the model’s <code>meta.json</code> — held-out UD test set (NER on dev).</p>'
+            f'</details>')
 
 
 app = FastAPI(lifespan=lifespan, title="LatinCy demos")
@@ -99,6 +131,12 @@ def layout(active, intro, body):
         f'<a href="{p}"{" class=active" if p == active else ""}>{html.escape(lbl)}</a>'
         for p, lbl in NAV
     )
+    if active in MODEL_ROUTES:
+        model_line = f'<p class="modelline">Model: <a href="{HF_URL}">{MODEL}</a> v{MODEL_VERSION}</p>'
+        metrics = metrics_html()
+    else:
+        model_line = '<p class="modelline">Rule-based normalization (<code>latincy-preprocess</code>) — no ML model.</p>'
+        metrics = ""
     return f"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -143,6 +181,12 @@ def layout(active, intro, body):
   .modes {{ border:none; margin:.7rem 0 0; padding:0; display:flex; flex-direction:column; gap:.3rem; }}
   .modes label {{ font-size:.95rem; }}
   .uonly {{ color:#666; font-size:.9rem; margin:.4rem 0; word-break:break-word; }}
+  .modelline {{ color:#555; font-size:.9rem; margin:-.7rem 0 1.3rem; }}
+  .modelline a {{ color:var(--accent); }}
+  details.metrics {{ margin:2.2rem 0 0; }}
+  details.metrics summary {{ cursor:pointer; font-weight:500; color:var(--accent); }}
+  table.metrics {{ border-collapse:collapse; margin:.6rem 0; font-size:.9rem; }}
+  table.metrics th, table.metrics td {{ text-align:left; padding:.3rem 1.2rem .3rem 0; border-bottom:1px solid #eee; }}
   details.tsv {{ margin-top:.8rem; }} details.tsv textarea {{ width:100%; font-family:ui-monospace,monospace; font-size:.75rem; }}
   code {{ background:#f0f1f3; padding:.05rem .35rem; border-radius:4px; }}
   footer {{ margin-top:3rem; color:#666; border-top:1px solid #eee; padding-top:1rem; font-size:.9rem; }}
@@ -158,7 +202,9 @@ def layout(active, intro, body):
   <main id="main-content">
     <h1>{html.escape(dict(NAV)[active])}</h1>
     <p class="lede">{intro}</p>
+    {model_line}
     {body}
+    {metrics}
     <footer>Built on the <a href="https://huggingface.co/latincy">LatinCy</a> <code>{MODEL}</code> model.
     Written by <a href="https://github.com/diyclassics">P.&nbsp;J.&nbsp;Burns</a> + Claude Opus&nbsp;4.8.</footer>
   </main>
