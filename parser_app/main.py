@@ -3,7 +3,7 @@
 Streamlit's runtime segfaults on inference on this host; plain spaCy is stable.
 The lg model is loaded ONCE at startup and shared by every model-based demo
 (parser/senter/NER/dependency/custom-label) — inference is serialized behind a
-lock. U/V and long-s are rule-based (no model). Left nav; parser is the landing
+lock. U/V spelling is rule-based (no model). Left nav; parser is the landing
 page. LatinCy house style (Lexend, #1d70c7), matching latincy-lexicon-site.
 """
 
@@ -21,14 +21,17 @@ from dcc_helpers import DCC_CORE_LEMMAS
 MODEL = "la_core_web_lg"
 MAX_TOKENS = 500
 
+# Each sample is >= 3 sentences (the demos are more useful multi-sentence).
 SAMPLE_PASSAGES = {
-    "Seneca, Ep. 1.1": "Ita fac, mi Lucili; vindica te tibi, et tempus quod adhuc aut auferebatur aut subripiebatur aut excidebat collige et serva.",
-    "Vergil, Aen. 1.1": "Arma virumque cano, Troiae qui primus ab oris Italiam fato profugus Laviniaque venit litora, multum ille et terris iactatus et alto vi superum saevae memorem Iunonis ob iram, multa quoque et bello passus, dum conderet urbem inferretque deos Latio, genus unde Latinum Albanique patres atque altae moenia Romae.",
-    "Caesar, B.G. 1.1": "Gallia est omnis divisa in partes tres, quarum unam incolunt Belgae, aliam Aquitani, tertiam qui ipsorum lingua Celtae, nostra Galli appellantur.",
-    "Ritchie, Fab. 1": "Olim in Graecia puer erat, qui Hercules appellabatur.",
+    "Seneca, Ep. 1.1": "Ita fac, mi Lucili; vindica te tibi, et tempus quod adhuc aut auferebatur aut subripiebatur aut excidebat collige et serva. Persuade tibi hoc sic esse ut scribo: quaedam tempora eripiuntur nobis, quaedam subducuntur, quaedam effluunt. Turpissima tamen est iactura quae per neglegentiam fit.",
+    "Vergil, Aen. 1.1": "Arma virumque cano, Troiae qui primus ab oris Italiam fato profugus Laviniaque venit litora, multum ille et terris iactatus et alto vi superum saevae memorem Iunonis ob iram, multa quoque et bello passus, dum conderet urbem inferretque deos Latio, genus unde Latinum Albanique patres atque altae moenia Romae. Musa, mihi causas memora, quo numine laeso quidve dolens regina deum tot volvere casus insignem pietate virum, tot adire labores impulerit. Tantaene animis caelestibus irae?",
+    "Caesar, B.G. 1.1": "Gallia est omnis divisa in partes tres, quarum unam incolunt Belgae, aliam Aquitani, tertiam qui ipsorum lingua Celtae, nostra Galli appellantur. Hi omnes lingua, institutis, legibus inter se differunt. Gallos ab Aquitanis Garumna flumen, a Belgis Matrona et Sequana dividit.",
+    "Ritchie, Perseus": "Haec narrantur a poetis de Perseo. Perseus filius erat Iovis, maximi deorum; avus eius Acrisius appellabatur. Acrisius volebat Perseum nepotem suum necare.",
     "Cicero, Cat. 1.1": "Quo usque tandem abutere, Catilina, patientia nostra? quam diu etiam furor iste tuus nos eludet? quem ad finem sese effrenata iactabit audacia?",
 }
 DEFAULT_TEXT = SAMPLE_PASSAGES["Seneca, Ep. 1.1"]
+# A longer u-only passage (Aeneid 1.1-11) so the U/V demo shows many corrections.
+UV_DEFAULT = "Arma uirumque cano, Troiae qui primus ab oris Italiam fato profugus Lauiniaque uenit litora, multum ille et terris iactatus et alto ui superum saeuae memorem Iunonis ob iram. Musa, mihi causas memora, quo numine laeso quidue dolens regina deum tot uoluere casus insignem pietate uirum, tot adire labores impulerit."
 COLUMNS = ["sent_id", "token_id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "ent_type"]
 
 # (path, label) — order = left-nav order; first entry is the landing page.
@@ -39,25 +42,21 @@ NAV = [
     ("/dependency", "Dependencies"),
     ("/custom-label", "DCC Core"),
     ("/uv", "U/V spelling"),
-    ("/long-s", "Long-s"),
 ]
 
 _nlp = None
 _lock = threading.Lock()
 _uv = None
-_longs = None
 
 
 @asynccontextmanager
 async def lifespan(app):
-    global _nlp, _uv, _longs
+    global _nlp, _uv
     _nlp = spacy.load(MODEL)
     if "trf_vectors" in _nlp.pipe_names:
         _nlp.disable_pipe("trf_vectors")
     from latincy_preprocess.uv import UVNormalizerRules
-    from latincy_preprocess.long_s import LongSNormalizer
     _uv = UVNormalizerRules()
-    _longs = LongSNormalizer()
     yield
 
 
@@ -141,6 +140,9 @@ def layout(active, intro, body):
   mark.core {{ background:#d6ebfb; padding:0 .05em; border-radius:3px; }}
   .textout {{ font-size:1.1rem; line-height:1.7; border:1px solid #e2e2e2; border-radius:6px; padding:.8rem 1rem; margin-top:.6rem; }}
   ins {{ background:#d8f5d8; text-decoration:none; }} del {{ background:#f7d7d7; }}
+  .modes {{ border:none; margin:.7rem 0 0; padding:0; display:flex; flex-direction:column; gap:.3rem; }}
+  .modes label {{ font-size:.95rem; }}
+  .uonly {{ color:#666; font-size:.9rem; margin:.4rem 0; word-break:break-word; }}
   details.tsv {{ margin-top:.8rem; }} details.tsv textarea {{ width:100%; font-family:ui-monospace,monospace; font-size:.75rem; }}
   code {{ background:#f0f1f3; padding:.05rem .35rem; border-radius:4px; }}
   footer {{ margin-top:3rem; color:#666; border-top:1px solid #eee; padding-top:1rem; font-size:.9rem; }}
@@ -262,24 +264,50 @@ def _diff_html(a, b):
     return "".join(out)
 
 
-def uv_result(text):
+def uv_result(text, mode):
+    if mode == "test":
+        # Remove: strip the gold reference to u-only. Test: restore + score.
+        source = text.replace("v", "u").replace("V", "U")
+        restored = _uv.normalize(source)
+        needed = sum(1 for a, b in zip(text, source) if a != b)
+        out, correct = [], 0
+        for i, ch in enumerate(restored):
+            e = html.escape(ch)
+            if i < len(source) and ch != source[i]:      # normalizer restored this char
+                if i < len(text) and ch == text[i]:
+                    correct += 1
+                    out.append(f"<ins>{e}</ins>")        # restored correctly
+                else:
+                    out.append(f"<del>{e}</del>")         # restored wrongly
+            else:
+                out.append(e)
+        if not needed:
+            return ('<p class="summary">No v-spelling in the reference to test — paste text with '
+                    'correct <code>v</code> (or pick a sample passage) as the reference.</p>')
+        acc = round(correct / needed * 100, 1)
+        return (f'<p class="summary">Stripped {needed} char(s) to u-only, then restored '
+                f'{acc}% correctly ({correct}/{needed}) vs the reference.</p>'
+                f'<p class="uonly">u-only &rarr; <code>{html.escape(source)}</code></p>'
+                f'<div class="textout">{"".join(out)}</div>')
     normalized = _uv.normalize(text)
     changed = sum(1 for a, b in zip(text, normalized) if a != b)
-    return (f'<p class="summary">{changed} character(s) changed (v/u normalization).</p>'
+    return (f'<p class="summary">{changed} character(s) restored (u &rarr; v).</p>'
             f'<div class="textout">{_diff_html(text, normalized)}</div>')
 
 
-def longs_result(text):
-    words, corrections = [], 0
-    for token in text.split(" "):
-        norm, rules = _longs.normalize_word_full(token)
-        if norm != token:
-            corrections += 1
-            words.append(f"<ins>{html.escape(norm)}</ins>")
-        else:
-            words.append(html.escape(norm))
-    return (f'<p class="summary">{corrections} word(s) corrected.</p>'
-            f'<div class="textout">{" ".join(words)}</div>')
+def uv_form(text, mode):
+    def chk(m):
+        return " checked" if m == mode else ""
+    return f"""
+    <form method="post" action="/uv">
+      <textarea name="text" id="text" rows="4" aria-label="Latin text">{html.escape(text)}</textarea>
+      {_samples_pills()}
+      <fieldset class="modes">
+        <label><input type="radio" name="mode" value="correct"{chk("correct")}> Correct — restore v in u-only text</label>
+        <label><input type="radio" name="mode" value="test"{chk("test")}> Remove &amp; test — strip this reference to u-only, restore, and score</label>
+      </fieldset>
+      <button class="go" type="submit">Run</button>
+    </form>"""
 
 
 # --------------------------------------------------------------------------- #
@@ -346,26 +374,21 @@ def cl_post(text: str = Form("")):
     return layout("/custom-label", "Highlight tokens in the DCC Core Latin Vocabulary.", input_form("/custom-label", text) + customlabel_result(text))
 
 
+UV_INTRO = ('Rule-based U/V spelling. <b>Correct</b> restores consonantal '
+            '<code>u</code>&nbsp;&rarr;&nbsp;<code>v</code>; <b>Remove &amp; test</b> strips a '
+            'correct reference to u-only, restores it, and scores the result.')
+
+
 @app.get("/uv", response_class=HTMLResponse)
 def uv_get():
-    return layout("/uv", "Rule-based U/V spelling normalization (consonantal u → v).", input_form("/uv", "Ita fac, mi Lucili; uindica te tibi.", samples=False, button="Normalize", rows=3))
+    return layout("/uv", UV_INTRO, uv_form(UV_DEFAULT, "correct"))
 
 
 @app.post("/uv", response_class=HTMLResponse)
-def uv_post(text: str = Form("")):
-    text = _clean(text) or "Ita fac, mi Lucili; uindica te tibi."
-    return layout("/uv", "Rule-based U/V spelling normalization.", input_form("/uv", text, samples=False, button="Normalize", rows=3) + uv_result(text))
-
-
-@app.get("/long-s", response_class=HTMLResponse)
-def ls_get():
-    return layout("/long-s", "Correct long-s (ſ) OCR artifacts.", input_form("/long-s", "ſumma cum laude", samples=False, button="Correct", rows=3))
-
-
-@app.post("/long-s", response_class=HTMLResponse)
-def ls_post(text: str = Form("")):
-    text = _clean(text) or "ſumma cum laude"
-    return layout("/long-s", "Correct long-s (ſ) OCR artifacts.", input_form("/long-s", text, samples=False, button="Correct", rows=3) + longs_result(text))
+def uv_post(text: str = Form(""), mode: str = Form("correct")):
+    text = _clean(text) or UV_DEFAULT
+    mode = mode if mode in ("correct", "test") else "correct"
+    return layout("/uv", UV_INTRO, uv_form(text, mode) + uv_result(text, mode))
 
 
 @app.get("/healthz")
