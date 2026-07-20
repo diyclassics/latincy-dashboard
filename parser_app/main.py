@@ -7,14 +7,18 @@ lock. U/V spelling is rule-based (no model). Left nav; parser is the landing
 page. LatinCy house style (Lexend, #1d70c7), matching latincy-lexicon-site.
 """
 
+import csv
 import html
+import io
+import json
 import threading
 from contextlib import asynccontextmanager
+from urllib.parse import quote
 
 import spacy
 from spacy import displacy
 from fastapi import FastAPI, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from dcc_helpers import DCC_CORE_LEMMAS
 
@@ -114,14 +118,15 @@ def _samples_pills():
         f'<button type="button" class="pill" data-text="{html.escape(v)}">{html.escape(k)}</button>'
         for k, v in SAMPLE_PASSAGES.items()
     )
-    return f'<div class="pills">{btns}</div>'
+    return f'<div class="pills" role="group" aria-label="Sample passages">{btns}</div>'
 
 
 def input_form(action, text, *, samples=True, label="Enter Latin text", button="Analyze", rows=6):
     pills = _samples_pills() if samples else ""
     return f"""
     <form method="get" action="{action}">
-      <textarea name="text" id="text" rows="{rows}" aria-label="{html.escape(label)}">{html.escape(text)}</textarea>
+      <label class="fieldlabel" for="text">{html.escape(label)}</label>
+      <textarea name="text" id="text" rows="{rows}">{html.escape(text)}</textarea>
       {pills}
       <button class="go" type="submit">{html.escape(button)}</button>
     </form>"""
@@ -129,9 +134,10 @@ def input_form(action, text, *, samples=True, label="Enter Latin text", button="
 
 def layout(active, intro, body):
     nav = "".join(
-        f'<a href="{p}"{" class=active" if p == active else ""}>{html.escape(lbl)}</a>'
+        f'<a href="{p}"{" class=active aria-current=page" if p == active else ""}>{html.escape(lbl)}</a>'
         for p, lbl in NAV
     )
+    page_label = html.escape(dict(NAV)[active])
     if active in MODEL_ROUTES:
         model_line = f'<p class="modelline">Model: <a href="{HF_URL}">{MODEL}</a> v{MODEL_VERSION}</p>'
         metrics = metrics_html()
@@ -141,14 +147,16 @@ def layout(active, intro, body):
     return f"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="LatinCy demos — Latin NLP with the la_core_web_lg model.">
-<title>LatinCy demos</title>
+<meta name="description" content="LatinCy demos — {page_label}: Latin NLP with the {MODEL} model.">
+<title>{page_label} — LatinCy demos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;700&display=swap">
 <style>
-  :root {{ font-family:"Lexend",-apple-system,system-ui,sans-serif; --accent:#1d70c7; }}
+  :root {{ font-family:"Lexend",-apple-system,system-ui,sans-serif; --accent:#1d70c7; --accent-text:#17609f; }}
   * {{ box-sizing:border-box; }}
+  .visually-hidden {{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }}
+  .fieldlabel {{ display:block; font-size:.9rem; font-weight:500; color:#333; margin:0 0 .35rem; }}
   body {{ margin:0; line-height:1.5; color:#1a1a1a; display:flex; min-height:100vh; }}
   .skip-link {{ position:absolute; top:-40px; left:.5rem; background:var(--accent); color:#fff; padding:.4rem .75rem; border-radius:0 0 4px 4px; z-index:100; text-decoration:none; }}
   .skip-link:focus {{ top:0; }}
@@ -158,7 +166,7 @@ def layout(active, intro, body):
   .brand .suffix {{ color:#000; }}
   aside nav {{ display:flex; flex-direction:column; gap:.15rem; }}
   aside nav a {{ text-decoration:none; color:#333; padding:.4rem .6rem; border-radius:6px; font-size:.95rem; }}
-  aside nav a:hover {{ background:#f2f6fb; color:var(--accent); }}
+  aside nav a:hover {{ background:#f2f6fb; color:var(--accent-text); }}
   aside nav a.active {{ background:var(--accent); color:#fff; }}
   main {{ flex:1; padding:2rem 2.2rem 4rem; max-width:60rem; }}
   h1 {{ font-size:1.6rem; margin:0 0 .3rem; }}
@@ -166,10 +174,11 @@ def layout(active, intro, body):
   textarea {{ width:100%; padding:.75rem 1rem; font:inherit; font-size:1.03rem; border:1px solid #767676; border-radius:4px; resize:vertical; }}
   .pills {{ margin:.7rem 0 .2rem; display:flex; flex-wrap:wrap; gap:.4rem; }}
   .pill {{ font:inherit; border:1px solid #767676; background:#fff; border-radius:999px; padding:.3rem .85rem; font-size:.83rem; color:#333; cursor:pointer; }}
-  .pill:hover {{ border-color:var(--accent); color:var(--accent); }}
+  .pill:hover {{ border-color:var(--accent); color:var(--accent-text); }}
   .go {{ margin-top:.9rem; background:var(--accent); color:#fff; border:none; border-radius:4px; padding:.6rem 1.4rem; font:inherit; font-size:1.02rem; cursor:pointer; }}
-  .go:hover {{ opacity:.9; }}
-  .summary {{ margin:1.6rem 0 .6rem; font-size:1.02rem; }}
+  .go:hover {{ background:var(--accent-text); }}
+  .summary {{ margin:1.6rem 0 .6rem; font-size:1.02rem; font-weight:600; }}
+  .summary:focus {{ outline:none; }}
   .tablewrap {{ overflow:auto; max-height:62vh; border:1px solid #e2e2e2; border-radius:6px; }}
   table.parse {{ border-collapse:collapse; width:auto; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82rem; }}
   table.parse th, table.parse td {{ text-align:left; padding:.3rem .7rem; white-space:nowrap; border-bottom:1px solid #eee; }}
@@ -183,27 +192,32 @@ def layout(active, intro, body):
   .modes label {{ font-size:.95rem; }}
   .uonly {{ color:#666; font-size:.9rem; margin:.4rem 0; word-break:break-word; }}
   .modelline {{ color:#555; font-size:.9rem; margin:-.7rem 0 1.3rem; }}
-  .modelline a {{ color:var(--accent); }}
+  .modelline a {{ color:var(--accent-text); }}
   details.metrics {{ margin:2.2rem 0 0; }}
-  details.metrics summary {{ cursor:pointer; font-weight:500; color:var(--accent); }}
+  details.metrics summary {{ cursor:pointer; font-weight:500; color:var(--accent-text); }}
   table.metrics {{ border-collapse:collapse; margin:.6rem 0; font-size:.9rem; }}
   table.metrics th, table.metrics td {{ text-align:left; padding:.3rem 1.2rem .3rem 0; border-bottom:1px solid #eee; }}
   details.tsv {{ margin-top:.8rem; }} details.tsv textarea {{ width:100%; font-family:ui-monospace,monospace; font-size:.75rem; }}
-  .clear {{ display:inline-block; margin-left:.9rem; font:inherit; font-size:.88rem; color:#555; border:1px solid #aaa; border-radius:4px; padding:.15rem .7rem; text-decoration:none; vertical-align:middle; }}
-  .clear:hover {{ border-color:var(--accent); color:var(--accent); }}
+  .copytsv {{ display:inline-block; margin:.5rem 0 .4rem; font:inherit; font-size:.85rem; color:#333; background:#fff; border:1px solid #767676; border-radius:4px; padding:.35rem .8rem; cursor:pointer; }}
+  .copytsv:hover {{ border-color:var(--accent); color:var(--accent-text); }}
+  .downloads {{ margin:.2rem 0 1rem; display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; }}
+  .dllabel {{ font-size:.88rem; color:#555; margin-right:.1rem; }}
+  .downloads .clear {{ margin-left:0; }}
+  .clear {{ display:inline-block; margin-left:.9rem; font:inherit; font-size:.88rem; color:#555; border:1px solid #767676; border-radius:4px; padding:.35rem .7rem; text-decoration:none; vertical-align:middle; }}
+  .clear:hover {{ border-color:var(--accent); color:var(--accent-text); }}
   code {{ background:#f0f1f3; padding:.05rem .35rem; border-radius:4px; }}
   footer {{ margin-top:3rem; color:#666; border-top:1px solid #eee; padding-top:1rem; font-size:.9rem; }}
-  footer a {{ color:var(--accent); }}
+  footer a {{ color:var(--accent-text); }}
   @media (max-width:720px) {{ body {{ flex-direction:column; }} aside {{ width:auto; height:auto; position:static; border-right:none; border-bottom:1px solid #e2e2e2; }} aside nav {{ flex-flow:row wrap; }} }}
 </style></head>
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <aside>
     <a href="/" class="brand">LatinCy <span class="suffix">demos</span></a>
-    <nav>{nav}</nav>
+    <nav aria-label="Demos">{nav}</nav>
   </aside>
   <main id="main-content">
-    <h1>{html.escape(dict(NAV)[active])}</h1>
+    <h1>{page_label}</h1>
     <p class="lede">{intro}</p>
     {model_line}
     {body}
@@ -218,6 +232,17 @@ def layout(active, intro, body):
         t.value = b.getAttribute('data-text'); t.focus();
       }});
     }});
+    document.querySelectorAll('.copytsv').forEach(function (b) {{
+      b.addEventListener('click', function () {{
+        var ta = document.getElementById(b.getAttribute('data-target'));
+        navigator.clipboard.writeText(ta.value).then(function () {{
+          var old = b.textContent; b.textContent = 'Copied!';
+          setTimeout(function () {{ b.textContent = old; }}, 1500);
+        }});
+      }});
+    }});
+    var r = document.getElementById('results');
+    if (r) {{ r.focus(); }}
   </script>
 </body></html>"""
 
@@ -230,7 +255,8 @@ def _format_morph(morph):
     return ", ".join(f"{k}={v}" for k, v in d.items()) if d else ""
 
 
-def parser_result(text):
+def parse_rows(text):
+    """The parse as a list of COLUMNS-ordered rows (shared by the table + CSV)."""
     doc = nlp(_cap(text))
     rows, n = [], 0
     for si, sent in enumerate(doc.sents):
@@ -244,17 +270,77 @@ def parser_result(text):
             n += 1
         if n >= MAX_TOKENS:
             break
+    return rows
+
+
+def rows_to_tsv(rows):
+    """CoNLL-U-ordered TSV — identical bytes for the copy box and the download."""
+    return "\t".join(COLUMNS) + "\n" + "\n".join("\t".join(str(v) for v in r) for r in rows) + "\n"
+
+
+def rows_to_csv(rows):
+    """CSV with proper quoting (the feats field carries commas)."""
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(COLUMNS)
+    writer.writerows(rows)
+    return buf.getvalue()
+
+
+def rows_to_json(rows):
+    return json.dumps([dict(zip(COLUMNS, r)) for r in rows], ensure_ascii=False, indent=2) + "\n"
+
+
+def rows_to_conllu(rows):
+    """CoNLL-U: 10 columns per token, blank-line-separated sentences.
+
+    Our sent-local token_id/head map straight onto CoNLL-U ID/HEAD; feats become
+    pipe-delimited; ent_type rides in MISC as NER=<type>. DEPS is left unset (_).
+    """
+    lines, cur = [], None
+    for sid, tid, form, lemma, upos, xpos, feats, head, deprel, ent in rows:
+        if sid != cur:
+            if cur is not None:
+                lines.append("")
+            lines.append(f"# sent_id = {sid}")
+            cur = sid
+        feats_c = feats.replace(", ", "|") if feats else "_"
+        misc = f"NER={ent}" if ent else "_"
+        lines.append("\t".join([str(tid), form or "_", lemma or "_", upos or "_",
+                                xpos or "_", feats_c, str(head), deprel or "_", "_", misc]))
+    return "\n".join(lines) + "\n"
+
+
+# fmt -> (media type, serializer, button label)
+DOWNLOAD_FORMATS = {
+    "tsv": ("text/tab-separated-values", rows_to_tsv, "TSV"),
+    "csv": ("text/csv", rows_to_csv, "CSV"),
+    "json": ("application/json", rows_to_json, "JSON"),
+    "conllu": ("text/plain", rows_to_conllu, "CoNLL-U"),
+}
+
+
+def parser_result(text):
+    rows = parse_rows(text)
     if not rows:
         return ""
     thead = "".join(f"<th>{html.escape(c)}</th>" for c in COLUMNS)
     body = "".join("<tr>" + "".join(f"<td>{html.escape(str(v))}</td>" for v in r) + "</tr>" for r in rows)
-    tsv = "\t".join(COLUMNS) + "\n" + "\n".join("\t".join(str(v) for v in r) for r in rows)
+    tsv = rows_to_tsv(rows)
     n_sents = len({r[0] for r in rows})
-    return (f'<p class="summary">Analyzed {len(rows)} tokens in {n_sents} sentence(s).'
-            f'<a href="/" class="clear">Clear</a></p>'
+    q = quote(text)
+    dl_buttons = "".join(
+        f'<a href="/parse.{fmt}?text={q}" class="clear" download>{lbl}</a>'
+        for fmt, (_media, _fn, lbl) in DOWNLOAD_FORMATS.items()
+    )
+    downloads = f'<div class="downloads"><span class="dllabel">Download:</span>{dl_buttons}</div>'
+    return (f'<h2 class="summary" id="results" tabindex="-1">Analyzed {len(rows)} tokens in {n_sents} sentence(s).'
+            f'<a href="/" class="clear">Clear</a></h2>'
+            f'{downloads}'
             f'<div class="tablewrap"><table class="parse"><thead><tr>{thead}</tr></thead><tbody>{body}</tbody></table></div>'
             f'<details class="tsv"><summary>Copy as TSV (CoNLL-U order)</summary>'
-            f'<textarea readonly rows="6">{html.escape(tsv)}</textarea></details>')
+            f'<button type="button" class="copytsv" data-target="tsvbox">Copy to clipboard</button>'
+            f'<textarea id="tsvbox" readonly rows="6">{html.escape(tsv)}</textarea></details>')
 
 
 def senter_result(text):
@@ -263,15 +349,15 @@ def senter_result(text):
     if not sents:
         return ""
     items = "".join(f"<li>{html.escape(s)}</li>" for s in sents)
-    return f'<p class="summary">{len(sents)} sentence(s).</p><ol class="sents">{items}</ol>'
+    return f'<h2 class="summary" id="results" tabindex="-1">{len(sents)} sentence(s).</h2><ol class="sents">{items}</ol>'
 
 
 def ner_result(text):
     doc = nlp(_cap(text))
     n = len(doc.ents)
     svg = displacy.render(doc, style="ent", page=False, minify=True)
-    return (f'<p class="summary">{n} entit{"y" if n == 1 else "ies"} found '
-            f'(PER, LOC, NORP).</p><div class="render">{svg}</div>')
+    return (f'<h2 class="summary" id="results" tabindex="-1">{n} entit{"y" if n == 1 else "ies"} found '
+            f'(PER, LOC, NORP).</h2><div class="render">{svg}</div>')
 
 
 def dep_result(text):
@@ -281,7 +367,12 @@ def dep_result(text):
              for sent in doc.sents]
     if not parts:
         return ""
-    return f'<p class="summary">{len(parts)} sentence(s).</p><div class="render">' + "".join(parts) + "</div>"
+    note = ('<p class="uonly">Dependency diagrams are graphics; screen-reader users can read the same '
+            'head/relation data as a text table in the <a href="/">Parser</a> demo.</p>')
+    render = ('<div class="render" role="img" '
+              'aria-label="Dependency parse diagrams. See the Parser demo for the same data as a text table.">'
+              + "".join(parts) + "</div>")
+    return f'<h2 class="summary" id="results" tabindex="-1">{len(parts)} sentence(s).</h2>' + note + render
 
 
 def customlabel_result(text):
@@ -294,14 +385,14 @@ def customlabel_result(text):
             total += 1
             if tok.lemma_ in DCC_CORE_LEMMAS:
                 core += 1
-                piece = f'<mark class="core">{piece}</mark>'
+                piece = f'<mark class="core">{piece}<span class="visually-hidden"> (DCC core)</span></mark>'
         out.append(piece + html.escape(tok.whitespace_))
     if not total:
         return ""
     pct = round(core / total * 100, 1)
-    return (f'<p class="summary">{core} of {total} tokens ({pct}%) are in the '
+    return (f'<h2 class="summary" id="results" tabindex="-1">{core} of {total} tokens ({pct}%) are in the '
             f'<a href="https://dcc.dickinson.edu/vocab/core-vocabulary">DCC Core</a> vocabulary '
-            f'(matched on lemma, u-form).</p><div class="textout">{"".join(out)}</div>')
+            f'(matched on lemma, u-form).</h2><div class="textout">{"".join(out)}</div>')
 
 
 def _diff_html(a, b):
@@ -336,7 +427,7 @@ def uv_result(text):
         score = f"restored {round(correct / needed * 100, 1)}% of {needed} v-spelling(s) to match your input"
     else:
         score = "your input had no consonantal u to restore"
-    return (f'<p class="summary">Stripped to u-only, then {score}.</p>'
+    return (f'<h2 class="summary" id="results" tabindex="-1">Stripped to u-only, then {score}.</h2>'
             f'<p class="uonly">u-only form &rarr; <code>{html.escape(source)}</code></p>'
             f'<div class="textout">{"".join(out)}</div>')
 
@@ -344,7 +435,8 @@ def uv_result(text):
 def uv_form(text):
     return f"""
     <form method="get" action="/uv">
-      <textarea name="text" id="text" rows="4" aria-label="Latin text">{html.escape(text)}</textarea>
+      <label class="fieldlabel" for="text">Latin text</label>
+      <textarea name="text" id="text" rows="4">{html.escape(text)}</textarea>
       {_samples_pills()}
       <button class="go" type="submit">Strip &amp; restore</button>
     </form>"""
@@ -365,6 +457,21 @@ def parser(text: str = Query(None)):
     text = _clean(text) or DEFAULT_TEXT
     return layout("/", f"Universal Dependencies parse from <code>{MODEL}</code>.",
                   input_form("/", text) + parser_result(text))
+
+
+@app.get("/parse.{fmt}")
+def parse_download(fmt: str, text: str = Query(None)):
+    """The parser table as a downloadable file: tsv (default), csv, json, or conllu."""
+    spec = DOWNLOAD_FORMATS.get(fmt)
+    if spec is None:
+        return Response("Unsupported format", status_code=404, media_type="text/plain")
+    media, serialize, _lbl = spec
+    text = _clean(text) or DEFAULT_TEXT
+    return Response(
+        content=serialize(parse_rows(text)),
+        media_type=f"{media}; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="latincy-parse.{fmt}"'},
+    )
 
 
 @app.get("/senter", response_class=HTMLResponse)
