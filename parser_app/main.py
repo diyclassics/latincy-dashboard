@@ -33,7 +33,7 @@ from dcc_helpers import DCC_CORE_LEMMAS, is_dcc_core
 MODEL = "la_core_web_lg"
 MODEL_VERSION = "?"  # set from the model's meta at startup
 HF_URL = "https://huggingface.co/latincy/la_core_web_lg"
-MAX_TOKENS = 500
+MAX_WORDS = 500  # input cap for EVERY text box (whitespace-split words), enforced by _cap
 
 
 def _pkg_ver(pkg):
@@ -149,7 +149,17 @@ def nlp(text):
 # layout                                                                       #
 # --------------------------------------------------------------------------- #
 def _cap(text):
-    return " ".join(text.split()[: MAX_TOKENS + 50])
+    """Truncate input to MAX_WORDS words — the single enforced cap for all boxes."""
+    return " ".join(text.split()[:MAX_WORDS])
+
+
+def _cap_hint(text):
+    """Word-limit note shown under every text box; flags truncation when it bites."""
+    n = len(text.split())
+    if n > MAX_WORDS:
+        return (f'<p class="uonly">Limited to {MAX_WORDS} words — your {n}-word input was '
+                f'truncated to the first {MAX_WORDS}.</p>')
+    return f'<p class="uonly">Up to {MAX_WORDS} words.</p>'
 
 
 def _samples_pills():
@@ -166,6 +176,7 @@ def input_form(action, text, *, samples=True, label="Enter Latin text", button="
     <form method="get" action="{action}">
       <label class="fieldlabel" for="text">{html.escape(label)}</label>
       <textarea name="text" id="text" rows="{rows}">{html.escape(text)}</textarea>
+      {_cap_hint(text)}
       {pills}
       <button class="go" type="submit">{html.escape(button)}</button>
     </form>"""
@@ -314,18 +325,13 @@ def _format_morph(morph):
 def parse_rows(text):
     """The parse as a list of COLUMNS-ordered rows (shared by the table + CSV)."""
     doc = nlp(_cap(text))
-    rows, n = [], 0
+    rows = []
     for si, sent in enumerate(doc.sents):
         start = sent.start
         for ti, tok in enumerate(sent):
-            if n >= MAX_TOKENS:
-                break
             head = 0 if tok.head == tok else tok.head.i - start + 1
             rows.append([f"s{si + 1}", ti + 1, tok.text, tok.lemma_, tok.pos_, tok.tag_,
                          _format_morph(tok.morph), head, tok.dep_, tok.ent_type_])
-            n += 1
-        if n >= MAX_TOKENS:
-            break
     return rows
 
 
@@ -494,6 +500,7 @@ def uv_form(text):
     <form method="get" action="/uv">
       <label class="fieldlabel" for="text">Latin text</label>
       <textarea name="text" id="text" rows="4">{html.escape(text)}</textarea>
+      {_cap_hint(text)}
       {_samples_pills()}
       <button class="go" type="submit">Strip &amp; restore</button>
     </form>"""
@@ -580,6 +587,7 @@ def vocab_form(text, sort, dcc):
     <form method="get" action="/vocab">
       <label class="fieldlabel" for="text">Enter Latin text</label>
       <textarea name="text" id="text" rows="6">{html.escape(text)}</textarea>
+      {_cap_hint(text)}
       {_samples_pills()}
       <div class="vcontrols">
         {_vocab_select("sort", VOCAB_SORTS, sort, "Sort:")}
@@ -639,7 +647,7 @@ def _clean(text):
 @app.get("/", response_class=HTMLResponse)
 def parser(text: str = Query(None)):
     if text is None:
-        return layout("/", f"Universal Dependencies parse from <code>{MODEL}</code>. Enter Latin text (max {MAX_TOKENS} tokens) or pick a sample.",
+        return layout("/", f"Universal Dependencies parse from <code>{MODEL}</code>. Enter Latin text or pick a sample.",
                       input_form("/", DEFAULT_TEXT))
     text = _clean(text) or DEFAULT_TEXT
     return layout("/", f"Universal Dependencies parse from <code>{MODEL}</code>.",
