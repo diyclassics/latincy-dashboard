@@ -15,6 +15,7 @@ import pathlib
 import tempfile
 import threading
 from contextlib import asynccontextmanager
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from urllib.parse import quote
 
 import spacy
@@ -33,6 +34,18 @@ MODEL = "la_core_web_lg"
 MODEL_VERSION = "?"  # set from the model's meta at startup
 HF_URL = "https://huggingface.co/latincy/la_core_web_lg"
 MAX_TOKENS = 500
+
+
+def _pkg_ver(pkg):
+    try:
+        return _pkg_version(pkg)
+    except PackageNotFoundError:
+        return "?"
+
+
+# Tool versions for the /vocab attribution line (read from installed metadata).
+LEXICON_VERSION = _pkg_ver("latincy-lexicon")
+VOCAB_VERSION = _pkg_ver("latincy-vocab")
 
 # Routes that use the lg model (so we show its attribution + metrics there).
 MODEL_ROUTES = {"/", "/senter", "/ner", "/dependency", "/custom-label", "/vocab"}
@@ -166,6 +179,13 @@ def layout(active, intro, body):
     page_label = html.escape(dict(NAV)[active])
     if active in MODEL_ROUTES:
         model_line = f'<p class="modelline">Model: <a href="{HF_URL}">{MODEL}</a> v{MODEL_VERSION}</p>'
+        if active == "/vocab":
+            model_line += (
+                '<p class="modelline">Lists: '
+                f'<a href="https://github.com/latincy/latincy-vocab">latincy-vocab</a> v{VOCAB_VERSION} · '
+                f'glosses <a href="https://github.com/latincy/latincy-lexicon">latincy-lexicon</a> '
+                f'v{LEXICON_VERSION} (Whitaker’s Words)</p>'
+            )
         metrics = metrics_html()
     else:
         model_line = '<p class="modelline">Rule-based normalization (<code>latincy-preprocess</code>) — no ML model.</p>'
@@ -445,6 +465,7 @@ def uv_result(text):
     # Strip ANY input to u-only (as in manuscript spelling), restore v, and score
     # the restoration against the input — so it works no matter how the text is
     # spelled, which removes the "input must be u-only" confusion.
+    text = _cap(text)   # same word cap as every other text box
     source = text.replace("v", "u").replace("V", "U")
     restored = _uv.normalize(source)
     needed = sum(1 for a, b in zip(text, source) if a != b)   # consonantal u's in the input
