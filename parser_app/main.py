@@ -11,6 +11,8 @@ import csv
 import html
 import io
 import json
+import pathlib
+import tempfile
 import threading
 from contextlib import asynccontextmanager
 from urllib.parse import quote
@@ -20,7 +22,12 @@ from spacy import displacy
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse, Response
 
-from dcc_helpers import DCC_CORE_LEMMAS
+from vocabbuilder.core.config import PipelineConfig
+from vocabbuilder.core.models import VocabList
+from vocabbuilder.processors.vocab_core import build_vocab_list
+from vocabbuilder.utils.normalization import to_u_form
+
+from dcc_helpers import DCC_CORE_LEMMAS, is_dcc_core
 
 MODEL = "la_core_web_lg"
 MODEL_VERSION = "?"  # set from the model's meta at startup
@@ -28,7 +35,7 @@ HF_URL = "https://huggingface.co/latincy/la_core_web_lg"
 MAX_TOKENS = 500
 
 # Routes that use the lg model (so we show its attribution + metrics there).
-MODEL_ROUTES = {"/", "/senter", "/ner", "/dependency", "/custom-label"}
+MODEL_ROUTES = {"/", "/senter", "/ner", "/dependency", "/custom-label", "/vocab"}
 METRIC_LABELS = [
     ("pos_acc", "POS (UPOS)"),
     ("tag_acc", "Tag (XPOS)"),
@@ -61,23 +68,42 @@ NAV = [
     ("/ner", "Entities"),
     ("/dependency", "Dependencies"),
     ("/custom-label", "DCC Core"),
+    ("/vocab", "Vocab list"),
     ("/uv", "U/V spelling"),
 ]
+
+# Vocab demo (latincy-vocab). Perseus opener — a teaching text — is the default.
+VOCAB_DEFAULT = SAMPLE_PASSAGES["Ritchie, Perseus"]
+VOCAB_SORTS = {"first": "First occurrence", "alpha": "Alphabetical", "freq": "Frequency"}
+VOCAB_DCC = {"all": "All words", "new": "New (non-core)", "core": "DCC core only"}
+# fmt -> (media type, VocabList method, download filename, button label)
+VOCAB_DOWNLOADS = {
+    "md": ("text/markdown", "to_markdown", "latincy-vocab.md", "Markdown"),
+    "json": ("application/json", "to_json", "latincy-vocab.json", "JSON"),
+}
 
 _nlp = None
 _lock = threading.Lock()
 _uv = None
+_ww = None  # blank pipe carrying whitakers_words; built lazily on first /vocab
+_ww_lock = threading.Lock()
+_vocab_config = None
 
 
 @asynccontextmanager
 async def lifespan(app):
-    global _nlp, _uv, MODEL_VERSION
+    global _nlp, _uv, _ww, _vocab_config, MODEL_VERSION
     _nlp = spacy.load(MODEL)
     if "trf_vectors" in _nlp.pipe_names:
         _nlp.disable_pipe("trf_vectors")
     MODEL_VERSION = _nlp.meta.get("version", "?")
     from latincy_preprocess.uv import UVNormalizerRules
     _uv = UVNormalizerRules()
+    # NB: the vocab demo's Whitaker's Words lexicon (~300 MB resident) is NOT
+    # loaded here — it's built lazily on the first /vocab request (see
+    # _get_vocab_pipe). On this 1.9 GB box, front-loading it at startup would
+    # make every parser/senter/NER/dependency/U-V visitor carry 300 MB they
+    # never use; lazy keeps the common path lean and only vocab users pay it.
     yield
 
 
@@ -184,6 +210,17 @@ def layout(active, intro, body):
   table.parse th, table.parse td {{ text-align:left; padding:.3rem .7rem; white-space:nowrap; border-bottom:1px solid #eee; }}
   table.parse th {{ position:sticky; top:0; background:#fafafa; font-weight:600; }}
   ol.sents {{ font-size:1.05rem; }} ol.sents li {{ margin:.35rem 0; }}
+  .vcontrols {{ display:flex; flex-wrap:wrap; gap:1.2rem; margin:.9rem 0 .2rem; }}
+  .vselect {{ font-size:.9rem; color:#333; }}
+  .vselect select {{ font:inherit; font-size:.9rem; padding:.25rem .4rem; border:1px solid #767676; border-radius:4px; margin-left:.2rem; }}
+  ul.vocab {{ list-style:none; margin:1rem 0 0; padding:0; font-size:1.02rem; columns:2; column-gap:2.4rem; }}
+  ul.vocab li {{ margin:0 0 .45rem; line-height:1.45; break-inside:avoid; }}
+  .vhead {{ font-weight:700; }}
+  .vpos {{ color:#666; font-style:italic; font-size:.9em; }}
+  .vfreq {{ color:#888; font-size:.85em; }}
+  .vsep {{ color:#999; }}
+  .dcc {{ display:inline-block; font-size:.68rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:var(--accent-text); background:#d6ebfb; border-radius:3px; padding:0 .3em; vertical-align:.08em; margin-left:.2em; }}
+  @media (max-width:720px) {{ ul.vocab {{ columns:1; }} }}
   .render {{ overflow:auto; border:1px solid #e2e2e2; border-radius:6px; padding:.6rem 1rem; margin-top:.6rem; }}
   mark.core {{ background:#d6ebfb; padding:0 .05em; border-radius:3px; }}
   .textout {{ font-size:1.1rem; line-height:1.7; border:1px solid #e2e2e2; border-radius:6px; padding:.8rem 1rem; margin-top:.6rem; }}
@@ -442,6 +479,130 @@ def uv_form(text):
     </form>"""
 
 
+def _get_vocab_pipe():
+    """Lazily build the Whitaker's Words carrier on first /vocab use, then cache it.
+
+    Deferred out of startup so the common demos never carry the ~300 MB lexicon
+    data on this 1.9 GB box — only a visitor who actually builds a vocab list
+    pays for it, and only once (double-checked lock; the ~5-10s build runs once).
+    Artifacts are cached to tmp, so a restart rebuilds the in-RAM structures but
+    reuses the on-disk JSON.
+    """
+    global _ww, _vocab_config
+    if _ww is not None:
+        return _ww
+    with _ww_lock:
+        if _ww is not None:
+            return _ww
+        from latincy_lexicon.build import build as build_lexicon
+        lex_dir = pathlib.Path(tempfile.gettempdir()) / "latincy-demos-lexicon"
+        lex_dir.mkdir(parents=True, exist_ok=True)
+        lex_path, ana_path = lex_dir / "lexicon.json", lex_dir / "analyzer.json"
+        if not (lex_path.exists() and ana_path.exists()):
+            build_lexicon(output_dir=lex_dir)
+        blank = spacy.blank("la")
+        blank.add_pipe(
+            "whitakers_words",
+            config={"lexicon_path": str(lex_path), "analyzer_path": str(ana_path)},
+            last=True,
+        )
+        _vocab_config = PipelineConfig(spacy_model=MODEL)
+        _ww = blank
+    return _ww
+
+
+def vocab_list(text):
+    """VocabList for *text*, built on the SHARED lg doc (one model, not two).
+
+    whitakers_words is applied to the shared doc post-hoc — the same pattern as
+    the lexicon demo — so ``token._.lexicon``/``._.gloss`` populate and
+    ``build_vocab_list`` gets citation forms + glosses without a second model.
+    Both the inference and the pipe run under the one inference lock.
+    """
+    ww = _get_vocab_pipe()
+    with _lock:
+        doc = _nlp(_cap(text))
+        doc = ww.get_pipe("whitakers_words")(doc)
+    return build_vocab_list(doc, _vocab_config)
+
+
+def vocab_entries(text, sort, dcc):
+    """(visible entries, grand total, DCC-core count) after sort + DCC filter.
+
+    Grand total and core count are computed BEFORE the DCC filter so the summary
+    can always report the new/core split of the full list.
+    """
+    vocab = vocab_list(text)
+    ordered = {"freq": vocab.by_frequency, "alpha": vocab.by_alpha}.get(
+        sort, vocab.by_first_occurrence
+    )()
+    entries = [e for e in ordered if e.headword and e.headword[0].isalpha()]
+    grand = len(entries)
+    core_total = sum(1 for e in entries if is_dcc_core(to_u_form(e.lemma)))
+    if dcc == "new":
+        entries = [e for e in entries if not is_dcc_core(to_u_form(e.lemma))]
+    elif dcc == "core":
+        entries = [e for e in entries if is_dcc_core(to_u_form(e.lemma))]
+    return entries, grand, core_total
+
+
+def _vocab_select(name, options, current, label):
+    opts = "".join(
+        f'<option value="{k}"{" selected" if k == current else ""}>{html.escape(v)}</option>'
+        for k, v in options.items()
+    )
+    return (f'<label class="vselect">{html.escape(label)} '
+            f'<select name="{name}">{opts}</select></label>')
+
+
+def vocab_form(text, sort, dcc):
+    return f"""
+    <form method="get" action="/vocab">
+      <label class="fieldlabel" for="text">Enter Latin text</label>
+      <textarea name="text" id="text" rows="6">{html.escape(text)}</textarea>
+      {_samples_pills()}
+      <div class="vcontrols">
+        {_vocab_select("sort", VOCAB_SORTS, sort, "Sort:")}
+        {_vocab_select("dcc", VOCAB_DCC, dcc, "Show:")}
+      </div>
+      <button class="go" type="submit">Build vocabulary list</button>
+    </form>"""
+
+
+def vocab_result(text, sort, dcc):
+    entries, grand, core_total = vocab_entries(text, sort, dcc)
+    if not entries:
+        return ('<h2 class="summary" id="results" tabindex="-1">No vocabulary found.'
+                '<a href="/vocab" class="clear">Clear</a></h2>')
+    q = quote(text)
+    dl = "".join(
+        f'<a href="/vocab.{fmt}?text={q}&sort={sort}&dcc={dcc}" class="clear" download>{lbl}</a>'
+        for fmt, (_media, _m, _fn, lbl) in VOCAB_DOWNLOADS.items()
+    )
+    downloads = f'<div class="downloads"><span class="dllabel">Download:</span>{dl}</div>'
+    items = []
+    for e in entries:
+        core = is_dcc_core(to_u_form(e.lemma))
+        marker = f' <span class="vpos">{html.escape(e.pos_marker)}</span>' if e.pos_marker else ""
+        badge = ' <span class="dcc" title="In the DCC Core Vocabulary">core</span>' if core else ""
+        gloss = html.escape("; ".join(e.glosses)) if e.glosses else '<span class="uonly">—</span>'
+        freq = f' <span class="vfreq">×{e.frequency}</span>' if e.frequency > 1 else ""
+        items.append(
+            f'<li><b class="vhead">{html.escape(e.headword)}</b>{marker}{badge}'
+            f'<span class="vsep"> — </span>{gloss}{freq}</li>'
+        )
+    breakdown = f" · {grand - core_total} new, {core_total} DCC core" if dcc == "all" else ""
+    note = ('<p class="uonly">Citation forms + glosses from Whitaker’s Words via '
+            '<a href="https://github.com/latincy/latincy-lexicon"><code>latincy-lexicon</code></a>; '
+            'list assembled by '
+            '<a href="https://github.com/latincy/latincy-vocab"><code>latincy-vocab</code></a>. '
+            'Probabilistic output — verify before classroom use.</p>')
+    return (f'<h2 class="summary" id="results" tabindex="-1">{len(entries)} entr'
+            f'{"y" if len(entries) == 1 else "ies"} shown{breakdown}.'
+            f'<a href="/vocab" class="clear">Clear</a></h2>'
+            f'{downloads}{note}<ul class="vocab">{"".join(items)}</ul>')
+
+
 # --------------------------------------------------------------------------- #
 # routes                                                                       #
 # --------------------------------------------------------------------------- #
@@ -504,6 +665,42 @@ def cl(text: str = Query(None)):
         return layout("/custom-label", "Highlight tokens in the DCC Core Latin Vocabulary.", input_form("/custom-label", DEFAULT_TEXT))
     text = _clean(text) or DEFAULT_TEXT
     return layout("/custom-label", "Highlight tokens in the DCC Core Latin Vocabulary.", input_form("/custom-label", text) + customlabel_result(text))
+
+
+VOCAB_INTRO = ('Build a glossed, textbook-style vocabulary list from a passage — each headword '
+               'in its citation form (principal parts, gen.+gender) with a short gloss. '
+               'Sort by first occurrence, frequency, or alphabetically, and filter against the '
+               '<a href="https://dcc.dickinson.edu/vocab/core-vocabulary">DCC Core</a> to see '
+               'what a passage adds beyond it.')
+
+
+@app.get("/vocab", response_class=HTMLResponse)
+def vocab(text: str = Query(None), sort: str = Query("first"), dcc: str = Query("all")):
+    sort = sort if sort in VOCAB_SORTS else "first"
+    dcc = dcc if dcc in VOCAB_DCC else "all"
+    if text is None:
+        return layout("/vocab", VOCAB_INTRO, vocab_form(VOCAB_DEFAULT, sort, dcc))
+    text = _clean(text) or VOCAB_DEFAULT
+    return layout("/vocab", VOCAB_INTRO, vocab_form(text, sort, dcc) + vocab_result(text, sort, dcc))
+
+
+@app.get("/vocab.{fmt}")
+def vocab_download(fmt: str, text: str = Query(None), sort: str = Query("first"), dcc: str = Query("all")):
+    """The vocabulary list as a downloadable file: md (Markdown glossary) or json."""
+    spec = VOCAB_DOWNLOADS.get(fmt)
+    if spec is None:
+        return Response("Unsupported format", status_code=404, media_type="text/plain")
+    media, method, filename, _lbl = spec
+    sort = sort if sort in VOCAB_SORTS else "first"
+    dcc = dcc if dcc in VOCAB_DCC else "all"
+    text = _clean(text) or VOCAB_DEFAULT
+    entries, _grand, _core = vocab_entries(text, sort, dcc)
+    content = getattr(VocabList(entries=entries), method)()
+    return Response(
+        content=content,
+        media_type=f"{media}; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 UV_INTRO = ('Rule-based U/V spelling (<code>latincy-preprocess</code>). Whatever you enter is first '

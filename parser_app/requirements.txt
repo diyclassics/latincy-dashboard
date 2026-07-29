@@ -5,3 +5,11 @@
 fastapi>=0.110
 uvicorn[standard]>=0.27
 python-multipart>=0.0.9
+
+# Vocab-list demo (/vocab). The parent requirements.txt omits latincy-vocab
+# because the Streamlit HF Space builds against PyPI and 0.1.0 lacked
+# vocabbuilder.data.gloss_provider. This FastAPI service installs via
+# `uv pip install` on the droplet, so the current release is pinned here.
+# 0.3.2 is the first PyPI release carrying the doc-level build_vocab_list API
+# this demo uses; publish it before deploying, or the install will 404.
+latincy-vocab==0.3.2

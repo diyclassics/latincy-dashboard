@@ -29,12 +29,16 @@ spacy-loggers==1.0.5
 # fixes. All other pins held constant so this isolates preprocess.
 latincy-preprocess==0.3.2
 la-latincy-lookups==1.0.0
-latincy-lexicon==0.5.0
+# Bumped 0.5.0 -> 0.11.0: latincy-vocab 0.3.2 (the FastAPI /vocab demo's dep, in
+# parser_app/requirements.txt) requires latincy-lexicon>=0.11.0. The whitakers_words
+# API this stack uses (build(output_dir=...), add_pipe with lexicon_path/analyzer_path)
+# is unchanged across the bump. Shared by both the Streamlit Space and the droplet.
+latincy-lexicon==0.11.0
 
-# latincy-vocab intentionally omitted: the only PyPI release (0.1.0) predates
-# the vocab demo and lacks vocabbuilder.data.gloss_provider, so pages/14 cannot
-# import on a cloud deploy. Re-add this dep and pages/14 once latincy-vocab is
-# republished to PyPI with the current code.
+# latincy-vocab is NOT listed here. The Streamlit page 14 stays dropped; the vocab
+# demo now lives in the FastAPI app, which pins latincy-vocab==0.3.2 in
+# parser_app/requirements.txt (that file layers on top of this one). Keeping it out
+# of the shared list means the Streamlit HF Space build doesn't pull it.
 
 # --- App stack (pinned to local). ---
 spacy-streamlit==1.0.6
