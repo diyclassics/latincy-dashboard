@@ -74,7 +74,7 @@ NAV = [
 
 # Vocab demo (latincy-vocab). Perseus opener — a teaching text — is the default.
 VOCAB_DEFAULT = SAMPLE_PASSAGES["Ritchie, Perseus"]
-VOCAB_SORTS = {"first": "First occurrence", "alpha": "Alphabetical", "freq": "Frequency"}
+VOCAB_SORTS = {"alpha": "Alphabetical", "first": "First occurrence", "freq": "Frequency"}
 VOCAB_DCC = {"all": "All words", "new": "New (non-core)", "core": "DCC core only"}
 # fmt -> (media type, VocabList method, download filename, button label)
 VOCAB_DOWNLOADS = {
@@ -218,8 +218,7 @@ def layout(active, intro, body):
   .vhead {{ font-weight:700; }}
   .vpos {{ color:#666; font-style:italic; font-size:.9em; }}
   .vfreq {{ color:#888; font-size:.85em; }}
-  .vsep {{ color:#999; }}
-  .dcc {{ display:inline-block; font-size:.68rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:var(--accent-text); background:#d6ebfb; border-radius:3px; padding:0 .3em; vertical-align:.08em; margin-left:.2em; }}
+  .coredot {{ display:inline-block; width:.45rem; height:.45rem; border-radius:50%; background:var(--accent); vertical-align:.12em; margin-left:.4em; }}
   @media (max-width:720px) {{ ul.vocab {{ columns:1; }} }}
   .render {{ overflow:auto; border:1px solid #e2e2e2; border-radius:6px; padding:.6rem 1rem; margin-top:.6rem; }}
   mark.core {{ background:#d6ebfb; padding:0 .05em; border-radius:3px; }}
@@ -533,8 +532,8 @@ def vocab_entries(text, sort, dcc):
     can always report the new/core split of the full list.
     """
     vocab = vocab_list(text)
-    ordered = {"freq": vocab.by_frequency, "alpha": vocab.by_alpha}.get(
-        sort, vocab.by_first_occurrence
+    ordered = {"freq": vocab.by_frequency, "first": vocab.by_first_occurrence}.get(
+        sort, vocab.by_alpha
     )()
     entries = [e for e in ordered if e.headword and e.headword[0].isalpha()]
     grand = len(entries)
@@ -581,21 +580,27 @@ def vocab_result(text, sort, dcc):
     )
     downloads = f'<div class="downloads"><span class="dllabel">Download:</span>{dl}</div>'
     items = []
+    any_core = False
     for e in entries:
         core = is_dcc_core(to_u_form(e.lemma))
-        marker = f' <span class="vpos">{html.escape(e.pos_marker)}</span>' if e.pos_marker else ""
-        badge = ' <span class="dcc" title="In the DCC Core Vocabulary">core</span>' if core else ""
-        gloss = html.escape("; ".join(e.glosses)) if e.glosses else '<span class="uonly">—</span>'
+        any_core = any_core or core
+        marker = f', <span class="vpos">{html.escape(e.pos_marker)}</span>' if e.pos_marker else ""
+        gloss = f', {html.escape("; ".join(e.glosses))}' if e.glosses else ""
         freq = f' <span class="vfreq">×{e.frequency}</span>' if e.frequency > 1 else ""
+        dot = ('<span class="coredot" title="In the DCC Core Vocabulary"></span>'
+               '<span class="visually-hidden"> (DCC core)</span>') if core else ""
         items.append(
-            f'<li><b class="vhead">{html.escape(e.headword)}</b>{marker}{badge}'
-            f'<span class="vsep"> — </span>{gloss}{freq}</li>'
+            f'<li><b class="vhead">{html.escape(e.headword)}</b>{marker}{gloss}{freq}{dot}</li>'
         )
     breakdown = f" · {grand - core_total} new, {core_total} DCC core" if dcc == "all" else ""
+    legend = ('Words in the '
+              '<a href="https://dcc.dickinson.edu/vocab/core-vocabulary">DCC Core Vocabulary</a> '
+              'are marked with a blue dot <span class="coredot"></span>. ') if any_core else ""
     note = ('<p class="uonly">Citation forms + glosses from Whitaker’s Words via '
             '<a href="https://github.com/latincy/latincy-lexicon"><code>latincy-lexicon</code></a>; '
             'list assembled by '
             '<a href="https://github.com/latincy/latincy-vocab"><code>latincy-vocab</code></a>. '
+            f'{legend}'
             'Probabilistic output — verify before classroom use.</p>')
     return (f'<h2 class="summary" id="results" tabindex="-1">{len(entries)} entr'
             f'{"y" if len(entries) == 1 else "ies"} shown{breakdown}.'
@@ -668,15 +673,14 @@ def cl(text: str = Query(None)):
 
 
 VOCAB_INTRO = ('Build a glossed, textbook-style vocabulary list from a passage — each headword '
-               'in its citation form (principal parts, gen.+gender) with a short gloss. '
+               'in its citation form with a short gloss. '
                'Sort by first occurrence, frequency, or alphabetically, and filter against the '
-               '<a href="https://dcc.dickinson.edu/vocab/core-vocabulary">DCC Core</a> to see '
-               'what a passage adds beyond it.')
+               '<a href="https://dcc.dickinson.edu/vocab/core-vocabulary">DCC Core</a>.')
 
 
 @app.get("/vocab", response_class=HTMLResponse)
-def vocab(text: str = Query(None), sort: str = Query("first"), dcc: str = Query("all")):
-    sort = sort if sort in VOCAB_SORTS else "first"
+def vocab(text: str = Query(None), sort: str = Query("alpha"), dcc: str = Query("all")):
+    sort = sort if sort in VOCAB_SORTS else "alpha"
     dcc = dcc if dcc in VOCAB_DCC else "all"
     if text is None:
         return layout("/vocab", VOCAB_INTRO, vocab_form(VOCAB_DEFAULT, sort, dcc))
@@ -685,13 +689,13 @@ def vocab(text: str = Query(None), sort: str = Query("first"), dcc: str = Query(
 
 
 @app.get("/vocab.{fmt}")
-def vocab_download(fmt: str, text: str = Query(None), sort: str = Query("first"), dcc: str = Query("all")):
+def vocab_download(fmt: str, text: str = Query(None), sort: str = Query("alpha"), dcc: str = Query("all")):
     """The vocabulary list as a downloadable file: md (Markdown glossary) or json."""
     spec = VOCAB_DOWNLOADS.get(fmt)
     if spec is None:
         return Response("Unsupported format", status_code=404, media_type="text/plain")
     media, method, filename, _lbl = spec
-    sort = sort if sort in VOCAB_SORTS else "first"
+    sort = sort if sort in VOCAB_SORTS else "alpha"
     dcc = dcc if dcc in VOCAB_DCC else "all"
     text = _clean(text) or VOCAB_DEFAULT
     entries, _grand, _core = vocab_entries(text, sort, dcc)
