@@ -33,7 +33,11 @@ from dcc_helpers import DCC_CORE_LEMMAS, is_dcc_core
 MODEL = "la_core_web_lg"
 MODEL_VERSION = "?"  # set from the model's meta at startup
 HF_URL = "https://huggingface.co/latincy/la_core_web_lg"
-MAX_WORDS = 500  # input cap for EVERY text box (whitespace-split words), enforced by _cap
+# Guardrail cap for EVERY text box: these are quick demos, not a batch service —
+# for whole texts, install LatinCy. Counted with the model tokenizer; the later
+# enclitic_splitter may add a few tokens, so the final count can run a hair over
+# 150 (immaterial for a demo).
+MAX_TOKENS = 150
 
 
 def _pkg_ver(pkg):
@@ -149,17 +153,19 @@ def nlp(text):
 # layout                                                                       #
 # --------------------------------------------------------------------------- #
 def _cap(text):
-    """Truncate input to MAX_WORDS words — the single enforced cap for all boxes."""
-    return " ".join(text.split()[:MAX_WORDS])
+    """Truncate to MAX_TOKENS tokens with the model tokenizer — the single cap for
+    all boxes. Tokenizer-only (no lock needed): cheap, and being off by a few
+    enclitics vs the final parse is immaterial for a demo."""
+    doc = _nlp.tokenizer(text)
+    return doc[:MAX_TOKENS].text if len(doc) > MAX_TOKENS else text.strip()
 
 
 def _cap_hint(text):
-    """Word-limit note shown under every text box; flags truncation when it bites."""
-    n = len(text.split())
-    if n > MAX_WORDS:
-        return (f'<p class="uonly">Limited to {MAX_WORDS} words — your {n}-word input was '
-                f'truncated to the first {MAX_WORDS}.</p>')
-    return f'<p class="uonly">Up to {MAX_WORDS} words.</p>'
+    """Token-limit note under every text box; flags truncation with an install nudge."""
+    if len(_nlp.tokenizer(text)) > MAX_TOKENS:
+        return (f'<p class="uonly">Limited to {MAX_TOKENS} tokens — longer input is truncated. '
+                f'For whole texts, install <a href="https://huggingface.co/latincy">LatinCy</a>.</p>')
+    return f'<p class="uonly">Up to {MAX_TOKENS} tokens.</p>'
 
 
 def _samples_pills():
@@ -471,7 +477,7 @@ def uv_result(text):
     # Strip ANY input to u-only (as in manuscript spelling), restore v, and score
     # the restoration against the input — so it works no matter how the text is
     # spelled, which removes the "input must be u-only" confusion.
-    text = _cap(text)   # same word cap as every other text box
+    text = _cap(text)   # same token cap as every other text box
     source = text.replace("v", "u").replace("V", "U")
     restored = _uv.normalize(source)
     needed = sum(1 for a, b in zip(text, source) if a != b)   # consonantal u's in the input
@@ -547,8 +553,9 @@ def vocab_list(text):
     Both the inference and the pipe run under the one inference lock.
     """
     ww = _get_vocab_pipe()
+    capped = _cap(text)   # tokenize+truncate before taking the inference lock
     with _lock:
-        doc = _nlp(_cap(text))
+        doc = _nlp(capped)
         doc = ww.get_pipe("whitakers_words")(doc)
     return build_vocab_list(doc, _vocab_config)
 
