@@ -28,7 +28,7 @@ from vocabbuilder.core.models import VocabList
 from vocabbuilder.processors.vocab_core import build_vocab_list
 from vocabbuilder.utils.normalization import to_u_form
 
-from dcc_helpers import DCC_CORE_LEMMAS, is_dcc_core
+from .dcc_helpers import DCC_CORE_LEMMAS, is_dcc_core
 
 MODEL = "la_core_web_lg"
 MODEL_VERSION = "?"  # set from the model's meta at startup

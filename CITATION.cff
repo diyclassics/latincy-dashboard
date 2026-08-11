@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
 title: "LatinCy Dashboard"
-abstract: "Development dashboard for the LatinCy project"
+abstract: "FastAPI dashboard for exploring features of the LatinCy la_core_web_lg model"
 authors:
   - family-names: Burns
     given-names: Patrick J.
