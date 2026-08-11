@@ -1,27 +1,22 @@
 import streamlit as st
+from datetime import datetime, timedelta
 
-st.set_page_config(
-    page_title="LatinCy Dashboard | Home",
-    page_icon="🏠",
-)
+st.set_page_config(page_title="LatinCy Dashboard", layout="centered")
 
-st.write("# LatinCy Dashboard")
+deployment_date = datetime(2026, 8, 11)
+sunset_date = deployment_date + timedelta(days=90)
+now = datetime.now()
 
-st.sidebar.success("Select a demo above.")
+if now > sunset_date:
+    st.error("This application has been retired.")
+    st.stop()
 
-st.markdown(
-    """
-    LatinCy is a collection of Latin language models for spaCy.
+st.title("LatinCy Dashboard Retired")
+st.markdown("""
+### This Streamlit Cloud deployment has been retired.
 
-    ### See the demos
-    - [Get basic spaCy data from a short text](parsing_demo)
-    - [Visualize a custom span label](custom_label_demo), here tokens covered by the [DCC Core Latin Vocabulary](https://dcc.dickinson.edu/latin-core-list1)
-    - [Segment a paragraph into sentences](senter_demo)
-    - [Highlight named entities](ner_demo) (people, places, groups) in Latin text
-    - [Visualize dependency trees](dependency_demo) showing grammatical structure
-    - [Normalize U/V spelling](uv_normalizer_demo) with rule-based [latincy-uv](https://github.com/diyclassics/latincy-uv)
-    - [Correct long-s OCR artifacts](long_s_demo) with [latincy-long-s](https://github.com/diyclassics/latincy-long-s)
-    - [Look up Latin words in Whitaker's Words](lexicon_lookup_demo) with [latincy-lexicon](https://github.com/latincy/latincy-lexicon)
-    - [Explore macron-based morphology signal](macron_morph_demo) *(experimental)* — how vowel-length marks supplement model predictions
-"""
-)
+The LatinCy Dashboard is now hosted at:
+### [https://dashboard.exploratoryphilology.org/](https://dashboard.exploratoryphilology.org/)
+
+Please update your bookmarks. This notice will be removed on **November 9, 2026**.
+""")
